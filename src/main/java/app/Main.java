@@ -1,27 +1,26 @@
 package app;
 
-import java.time.LocalDate;
-import model.*;
+import java.util.NoSuchElementException;
+import java.util.Scanner;
+import service.stub.ServicosEmMemoria;
 
+/**
+ * Ponto de entrada. Monta as dependências (injeção por construtor) e abre o menu.
+ * Por enquanto usa serviços em memória; depois: conexão -> DAOs JDBC -> serviços reais.
+ */
 public class Main {
     public static void main(String[] args) {
-        Area tecnologia = new Area(1L, "Tecnologia");
-        Empresa empresa = new Empresa(1L, "Maria RH", "rh@acme.com", "ACME Software");
-        Estudante estudante = new Estudante(2L, "João Silva", "joao@aluno.edu", "Sistemas de Informação");
-        Administrador admin = new Administrador(3L, "Admin", "admin@portal.com");
+        Scanner scanner = new Scanner(System.in);
+        Entrada entrada = new Entrada(scanner);
 
-        Vaga vaga = new Vaga(1L, empresa, "Estágio em Desenvolvimento Java",
-                "Apoio ao time de back-end", tecnologia, "Itápolis - SP", Modalidade.HIBRIDA, 30);
-        Candidatura candidatura = new Candidatura(1L, estudante, vaga, LocalDate.now());
+        // TROCAR AQUI pelos serviços reais quando existirem (UsuarioServiceImpl, VagaServiceImpl...)
+        ServicosEmMemoria servicos = new ServicosEmMemoria();
 
-        System.out.println("=== Portal de Estágios ===");
-        System.out.println(admin);
-        System.out.println(empresa + " (" + empresa.getNomeEmpresa() + ")");
-        System.out.println(estudante + " - curso: " + estudante.getCurso());
-        System.out.println(vaga);
-        System.out.println(candidatura);
-
-        vaga.encerrar();
-        System.out.println("Após encerrar -> aberta? " + vaga.estaAberta());
+        MenuPrincipal menu = new MenuPrincipal(entrada, servicos, servicos, servicos, servicos, servicos);
+        try {
+            menu.abrir();
+        } catch (NoSuchElementException e) {
+            System.out.println("\nEntrada encerrada. Até logo!");
+        }
     }
 }
