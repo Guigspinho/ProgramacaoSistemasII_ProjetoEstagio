@@ -1,20 +1,29 @@
 package service.jdbc;
 
+import dao.AreaDAO;
+import dao.CandidaturaDAO;
+import dao.EmpresaDAO;
+import dao.EstatisticaDAO;
+import dao.EstudanteDAO;
+import dao.UsuarioDAO;
+import dao.VagaDAO;
+import dao.jdbc.InicializadorBanco;
+import dao.jdbc.JdbcAreaDAO;
+import dao.jdbc.JdbcCandidaturaDAO;
+import dao.jdbc.JdbcEmpresaDAO;
+import dao.jdbc.JdbcEstatisticaDAO;
+import dao.jdbc.JdbcEstudanteDAO;
+import dao.jdbc.JdbcUsuarioDAO;
+import dao.jdbc.JdbcVagaDAO;
 import exception.AcessoNegadoException;
 import exception.PersistenciaException;
 import exception.RegraNegocioException;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Statement;
 import java.time.LocalDate;
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Predicate;
-import model.Administrador;
 import model.Area;
 import model.Candidatura;
 import model.Empresa;
@@ -31,209 +40,62 @@ import service.UsuarioService;
 import service.VagaService;
 
 /**
- * Implementação JDBC dos serviços do portal. As tabelas são criadas na inicialização;
- * todas as operações usam parâmetros e recursos JDBC com fechamento automático.
+ * Serviços de produção. Aplicam regras do portal e delegam o acesso aos dados
+ * para contratos DAO, sem executar SQL nesta camada.
  */
 public final class ServicosJDBC implements UsuarioService, AreaService, VagaService,
         CandidaturaService, RelatorioService {
     @FunctionalInterface
-    private interface Operacao<T> {
-        T executar(Connection conexao) throws SQLException;
+    private interface OperacaoDAO<T> {
+        T executar() throws SQLException;
     }
 
-    private final ConexaoSupabase conexoes;
+    private final UsuarioDAO usuarioDAO;
+    private final EstudanteDAO estudanteDAO;
+    private final EmpresaDAO empresaDAO;
+    private final AreaDAO areaDAO;
+    private final VagaDAO vagaDAO;
+    private final CandidaturaDAO candidaturaDAO;
+    private final EstatisticaDAO estatisticaDAO;
 
     public ServicosJDBC() {
-        this(new ConexaoSupabase());
+        ConexaoSupabase conexoes = new ConexaoSupabase();
+        new InicializadorBanco(conexoes).inicializar();
+        usuarioDAO = new JdbcUsuarioDAO(conexoes);
+        estudanteDAO = new JdbcEstudanteDAO(conexoes);
+        empresaDAO = new JdbcEmpresaDAO(conexoes);
+        areaDAO = new JdbcAreaDAO(conexoes);
+        vagaDAO = new JdbcVagaDAO(conexoes);
+        candidaturaDAO = new JdbcCandidaturaDAO(conexoes);
+        estatisticaDAO = new JdbcEstatisticaDAO(conexoes);
     }
 
-    ServicosJDBC(ConexaoSupabase conexoes) {
-        this.conexoes = conexoes;
-        inicializarEsquema();
-        popularDadosDemonstracao();
+    public ServicosJDBC(UsuarioDAO usuarioDAO, EstudanteDAO estudanteDAO, EmpresaDAO empresaDAO,
+                        AreaDAO areaDAO, VagaDAO vagaDAO, CandidaturaDAO candidaturaDAO,
+                        EstatisticaDAO estatisticaDAO) {
+        this.usuarioDAO = usuarioDAO;
+        this.estudanteDAO = estudanteDAO;
+        this.empresaDAO = empresaDAO;
+        this.areaDAO = areaDAO;
+        this.vagaDAO = vagaDAO;
+        this.candidaturaDAO = candidaturaDAO;
+        this.estatisticaDAO = estatisticaDAO;
     }
 
-    private <T> T consultar(Operacao<T> operacao) {
-        try (Connection conexao = conexoes.abrir()) {
-            return operacao.executar(conexao);
+    private <T> T executarDAO(OperacaoDAO<T> operacao) {
+        try {
+            return operacao.executar();
         } catch (SQLException e) {
-            throw traduzirFalha(e);
-        }
-    }
-
-    private <T> T transacionar(Operacao<T> operacao) {
-        try (Connection conexao = conexoes.abrir()) {
-            conexao.setAutoCommit(false);
-            try {
-                T resultado = operacao.executar(conexao);
-                conexao.commit();
-                return resultado;
-            } catch (SQLException | RuntimeException e) {
-                try {
-                    conexao.rollback();
-                } catch (SQLException falhaRollback) {
-                    e.addSuppressed(falhaRollback);
-                }
-                if (e instanceof SQLException sqlException) throw traduzirFalha(sqlException);
-                throw e;
+            String sqlState = e.getSQLState() == null ? "" : e.getSQLState();
+            switch (sqlState) {
+                case "23505" -> throw new RegraNegocioException(
+                        "Já existe um registro com os mesmos dados únicos (e-mail, área ou candidatura).");
+                case "23503" -> throw new RegraNegocioException(
+                        "A operação referencia um registro inexistente ou ainda utilizado.");
+                case "23502", "22P02", "22001" -> throw new RegraNegocioException(
+                        "Os dados informados são inválidos para o banco.");
+                default -> throw new PersistenciaException("Falha ao acessar o banco de dados.", e);
             }
-        } catch (SQLException e) {
-            throw traduzirFalha(e);
-        }
-    }
-
-    private RuntimeException traduzirFalha(SQLException e) {
-        return switch (e.getSQLState() == null ? "" : e.getSQLState()) {
-            case "23505" -> new RegraNegocioException(
-                    "Já existe um registro com os mesmos dados únicos (e-mail, área ou candidatura).");
-            case "23503" -> new RegraNegocioException(
-                    "A operação referencia um registro inexistente ou ainda utilizado.");
-            case "23502", "22P02", "22001" -> new RegraNegocioException(
-                    "Os dados informados são inválidos para o banco.");
-            default -> new PersistenciaException("Falha ao acessar o banco de dados.", e);
-        };
-    }
-
-    private void inicializarEsquema() {
-        transacionar(conexao -> {
-            String[] comandos = {
-                """
-                CREATE TABLE IF NOT EXISTS usuarios (
-                    id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
-                    nome TEXT NOT NULL CHECK (btrim(nome) <> ''),
-                    email TEXT NOT NULL UNIQUE CHECK (email = lower(btrim(email))),
-                    perfil TEXT NOT NULL CHECK (perfil IN ('ADMINISTRADOR', 'EMPRESA', 'ESTUDANTE'))
-                )
-                """,
-                """
-                CREATE TABLE IF NOT EXISTS estudantes (
-                    usuario_id BIGINT PRIMARY KEY REFERENCES usuarios(id) ON DELETE CASCADE,
-                    curso TEXT NOT NULL CHECK (btrim(curso) <> '')
-                )
-                """,
-                """
-                CREATE TABLE IF NOT EXISTS empresas (
-                    usuario_id BIGINT PRIMARY KEY REFERENCES usuarios(id) ON DELETE CASCADE,
-                    nome_empresa TEXT NOT NULL CHECK (btrim(nome_empresa) <> '')
-                )
-                """,
-                """
-                CREATE TABLE IF NOT EXISTS areas (
-                    id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
-                    nome TEXT NOT NULL CHECK (btrim(nome) <> '')
-                )
-                """,
-                "CREATE UNIQUE INDEX IF NOT EXISTS areas_nome_case_insensitive ON areas (lower(nome))",
-                """
-                CREATE TABLE IF NOT EXISTS vagas (
-                    id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
-                    empresa_id BIGINT NOT NULL REFERENCES empresas(usuario_id),
-                    area_id BIGINT NOT NULL REFERENCES areas(id),
-                    titulo TEXT NOT NULL CHECK (btrim(titulo) <> ''),
-                    descricao TEXT,
-                    localizacao TEXT,
-                    modalidade TEXT NOT NULL CHECK (modalidade IN ('PRESENCIAL', 'REMOTA', 'HIBRIDA')),
-                    carga_horaria_semanal INTEGER NOT NULL CHECK (carga_horaria_semanal > 0),
-                    situacao TEXT NOT NULL DEFAULT 'ABERTA' CHECK (situacao IN ('ABERTA', 'ENCERRADA'))
-                )
-                """,
-                """
-                CREATE TABLE IF NOT EXISTS candidaturas (
-                    id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
-                    estudante_id BIGINT NOT NULL REFERENCES estudantes(usuario_id),
-                    vaga_id BIGINT NOT NULL REFERENCES vagas(id),
-                    data_inscricao DATE NOT NULL DEFAULT CURRENT_DATE,
-                    CONSTRAINT candidatura_estudante_vaga_unica UNIQUE (estudante_id, vaga_id)
-                )
-                """
-            };
-            try (Statement statement = conexao.createStatement()) {
-                for (String comando : comandos) statement.execute(comando);
-            }
-            return null;
-        });
-    }
-
-    private void popularDadosDemonstracao() {
-        transacionar(conexao -> {
-            inserirUsuarioDemo(conexao, "Admin", "admin@portal.com", "ADMINISTRADOR");
-            inserirUsuarioDemo(conexao, "Maria RH", "rh@acme.com", "EMPRESA");
-            inserirUsuarioDemo(conexao, "Carlos RH", "rh@beta.com", "EMPRESA");
-            inserirUsuarioDemo(conexao, "João Silva", "joao@aluno.edu", "ESTUDANTE");
-            inserirUsuarioDemo(conexao, "Ana Souza", "ana@aluno.edu", "ESTUDANTE");
-
-            inserirPerfilDemo(conexao, "INSERT INTO empresas (usuario_id, nome_empresa) "
-                    + "SELECT id, ? FROM usuarios WHERE email = ? ON CONFLICT (usuario_id) DO NOTHING",
-                    "ACME Software", "rh@acme.com");
-            inserirPerfilDemo(conexao, "INSERT INTO empresas (usuario_id, nome_empresa) "
-                    + "SELECT id, ? FROM usuarios WHERE email = ? ON CONFLICT (usuario_id) DO NOTHING",
-                    "Beta Design", "rh@beta.com");
-            inserirPerfilDemo(conexao, "INSERT INTO estudantes (usuario_id, curso) "
-                    + "SELECT id, ? FROM usuarios WHERE email = ? ON CONFLICT (usuario_id) DO NOTHING",
-                    "Sistemas de Informação", "joao@aluno.edu");
-            inserirPerfilDemo(conexao, "INSERT INTO estudantes (usuario_id, curso) "
-                    + "SELECT id, ? FROM usuarios WHERE email = ? ON CONFLICT (usuario_id) DO NOTHING",
-                    "Design", "ana@aluno.edu");
-
-            inserirAreaDemo(conexao, "Tecnologia");
-            inserirAreaDemo(conexao, "Administração");
-            inserirAreaDemo(conexao, "Design");
-            inserirVagaDemo(conexao, "rh@acme.com", "Tecnologia", "Estágio em Desenvolvimento Java",
-                    "Apoio ao back-end", "Itápolis - SP", Modalidade.HIBRIDA, 30);
-            inserirVagaDemo(conexao, "rh@beta.com", "Design", "Estágio em UX",
-                    "Protótipos e pesquisa", "Remoto", Modalidade.REMOTA, 20);
-            return null;
-        });
-    }
-
-    private void inserirUsuarioDemo(Connection conexao, String nome, String email, String perfil)
-            throws SQLException {
-        try (PreparedStatement ps = conexao.prepareStatement(
-                "INSERT INTO usuarios (nome, email, perfil) VALUES (?, ?, ?) ON CONFLICT (email) DO NOTHING")) {
-            ps.setString(1, nome);
-            ps.setString(2, email);
-            ps.setString(3, perfil);
-            ps.executeUpdate();
-        }
-    }
-
-    private void inserirPerfilDemo(Connection conexao, String sql, String valor, String email)
-            throws SQLException {
-        try (PreparedStatement ps = conexao.prepareStatement(sql)) {
-            ps.setString(1, valor);
-            ps.setString(2, email);
-            ps.executeUpdate();
-        }
-    }
-
-    private void inserirAreaDemo(Connection conexao, String nome) throws SQLException {
-        try (PreparedStatement ps = conexao.prepareStatement(
-                "INSERT INTO areas (nome) VALUES (?) ON CONFLICT DO NOTHING")) {
-            ps.setString(1, nome);
-            ps.executeUpdate();
-        }
-    }
-
-    private void inserirVagaDemo(Connection conexao, String emailEmpresa, String nomeArea,
-                                  String titulo, String descricao, String localizacao,
-                                  Modalidade modalidade, int carga) throws SQLException {
-        String sql = """
-                INSERT INTO vagas (empresa_id, area_id, titulo, descricao, localizacao, modalidade, carga_horaria_semanal)
-                SELECT u.id, a.id, ?, ?, ?, ?, ?
-                FROM usuarios u CROSS JOIN areas a
-                WHERE u.email = ? AND a.nome = ?
-                  AND NOT EXISTS (SELECT 1 FROM vagas v WHERE v.titulo = ? AND v.empresa_id = u.id)
-                """;
-        try (PreparedStatement ps = conexao.prepareStatement(sql)) {
-            ps.setString(1, titulo);
-            ps.setString(2, descricao);
-            ps.setString(3, localizacao);
-            ps.setString(4, modalidade.name());
-            ps.setInt(5, carga);
-            ps.setString(6, emailEmpresa);
-            ps.setString(7, nomeArea);
-            ps.setString(8, titulo);
-            ps.executeUpdate();
         }
     }
 
@@ -257,188 +119,107 @@ public final class ServicosJDBC implements UsuarioService, AreaService, VagaServ
         return normalizado;
     }
 
-    private long inserirUsuario(Connection conexao, String nome, String email, Perfil perfil)
-            throws SQLException {
-        String sql = "INSERT INTO usuarios (nome, email, perfil) VALUES (?, ?, ?)";
-        try (PreparedStatement ps = conexao.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
-            ps.setString(1, textoObrigatorio(nome, "Nome"));
-            ps.setString(2, normalizarEmail(email));
-            ps.setString(3, perfil.name());
-            ps.executeUpdate();
-            try (ResultSet chaves = ps.getGeneratedKeys()) {
-                if (!chaves.next()) throw new SQLException("O banco não retornou o id do usuário.");
-                return chaves.getLong(1);
-            }
+    private Area buscarArea(Long id) {
+        if (id == null || id <= 0) throw new IllegalArgumentException("Área inválida.");
+        return executarDAO(() -> areaDAO.buscarPorId(id))
+                .orElseThrow(() -> new RegraNegocioException("Área " + id + " não encontrada."));
+    }
+
+    private Vaga buscarVaga(Long id) {
+        if (id == null || id <= 0) throw new IllegalArgumentException("Vaga inválida.");
+        return executarDAO(() -> vagaDAO.buscarPorId(id))
+                .orElseThrow(() -> new RegraNegocioException("Vaga " + id + " não encontrada."));
+    }
+
+    private Empresa exigirEmpresa(Usuario ator, String acao) {
+        exigirPerfil(ator, Perfil.EMPRESA, acao);
+        if (!(ator instanceof Empresa empresa)) {
+            throw new AcessoNegadoException("O usuário selecionado não representa uma empresa válida.");
         }
+        return empresa;
+    }
+
+    private Estudante exigirEstudante(Usuario ator, String acao) {
+        exigirPerfil(ator, Perfil.ESTUDANTE, acao);
+        if (!(ator instanceof Estudante estudante)) {
+            throw new AcessoNegadoException("O usuário selecionado não representa um estudante válido.");
+        }
+        return estudante;
+    }
+
+    private Vaga vagaDaEmpresa(Usuario ator, Long vagaId) {
+        Empresa empresa = exigirEmpresa(ator, "gerenciar vagas");
+        Vaga vaga = buscarVaga(vagaId);
+        if (!vaga.getEmpresa().getId().equals(empresa.getId())) {
+            throw new AcessoNegadoException("Esta vaga pertence a outra empresa.");
+        }
+        return vaga;
     }
 
     @Override
     public Estudante cadastrarEstudante(String nome, String email, String curso) {
-        return transacionar(conexao -> {
-            long id = inserirUsuario(conexao, nome, email, Perfil.ESTUDANTE);
-            String sql = "INSERT INTO estudantes (usuario_id, curso) VALUES (?, ?)";
-            try (PreparedStatement ps = conexao.prepareStatement(sql)) {
-                ps.setLong(1, id);
-                ps.setString(2, textoObrigatorio(curso, "Curso"));
-                ps.executeUpdate();
-            }
-            return new Estudante(id, nome.trim(), normalizarEmail(email), curso.trim());
-        });
+        String nomeValido = textoObrigatorio(nome, "Nome");
+        String emailValido = normalizarEmail(email);
+        String cursoValido = textoObrigatorio(curso, "Curso");
+        return executarDAO(() -> estudanteDAO.cadastrar(
+                new Estudante(null, nomeValido, emailValido, cursoValido)));
     }
 
     @Override
     public Empresa cadastrarEmpresa(String nome, String email, String nomeEmpresa) {
-        return transacionar(conexao -> {
-            long id = inserirUsuario(conexao, nome, email, Perfil.EMPRESA);
-            String sql = "INSERT INTO empresas (usuario_id, nome_empresa) VALUES (?, ?)";
-            try (PreparedStatement ps = conexao.prepareStatement(sql)) {
-                ps.setLong(1, id);
-                ps.setString(2, textoObrigatorio(nomeEmpresa, "Nome da empresa"));
-                ps.executeUpdate();
-            }
-            return new Empresa(id, nome.trim(), normalizarEmail(email), nomeEmpresa.trim());
-        });
+        String nomeValido = textoObrigatorio(nome, "Nome");
+        String emailValido = normalizarEmail(email);
+        String empresaValida = textoObrigatorio(nomeEmpresa, "Nome da empresa");
+        return executarDAO(() -> empresaDAO.cadastrar(
+                new Empresa(null, nomeValido, emailValido, empresaValida)));
     }
 
     @Override
     public List<Usuario> listarUsuarios() {
-        return consultar(conexao -> {
-            String sql = """
-                    SELECT u.id, u.nome, u.email, u.perfil, e.curso, em.nome_empresa
-                    FROM usuarios u
-                    LEFT JOIN estudantes e ON e.usuario_id = u.id
-                    LEFT JOIN empresas em ON em.usuario_id = u.id
-                    ORDER BY u.id
-                    """;
-            List<Usuario> resultado = new ArrayList<>();
-            try (PreparedStatement ps = conexao.prepareStatement(sql);
-                 ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) resultado.add(mapearUsuario(rs));
-            }
-            return List.copyOf(resultado);
-        });
-    }
-
-    private Usuario mapearUsuario(ResultSet rs) throws SQLException {
-        long id = rs.getLong("id");
-        String nome = rs.getString("nome");
-        String email = rs.getString("email");
-        return switch (Perfil.valueOf(rs.getString("perfil"))) {
-            case ADMINISTRADOR -> new Administrador(id, nome, email);
-            case EMPRESA -> new Empresa(id, nome, email, rs.getString("nome_empresa"));
-            case ESTUDANTE -> new Estudante(id, nome, email, rs.getString("curso"));
-        };
-    }
-
-    private Area buscarArea(Connection conexao, long id) throws SQLException {
-        try (PreparedStatement ps = conexao.prepareStatement("SELECT id, nome FROM areas WHERE id = ?")) {
-            ps.setLong(1, id);
-            try (ResultSet rs = ps.executeQuery()) {
-                if (!rs.next()) throw new RegraNegocioException("Área " + id + " não encontrada.");
-                return new Area(rs.getLong("id"), rs.getString("nome"));
-            }
-        }
-    }
-
-    private Vaga buscarVaga(Connection conexao, long id) throws SQLException {
-        String sql = sqlVagas() + " WHERE v.id = ?";
-        try (PreparedStatement ps = conexao.prepareStatement(sql)) {
-            ps.setLong(1, id);
-            try (ResultSet rs = ps.executeQuery()) {
-                if (!rs.next()) throw new RegraNegocioException("Vaga " + id + " não encontrada.");
-                return mapearVaga(rs);
-            }
-        }
+        return executarDAO(usuarioDAO::listarTodos);
     }
 
     @Override
     public Area cadastrar(Usuario ator, String nome) {
         exigirPerfil(ator, Perfil.ADMINISTRADOR, "cadastrar áreas");
-        String valido = textoObrigatorio(nome, "Nome da área");
-        return transacionar(conexao -> {
-            String sql = "INSERT INTO areas (nome) VALUES (?)";
-            try (PreparedStatement ps = conexao.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
-                ps.setString(1, valido);
-                ps.executeUpdate();
-                try (ResultSet rs = ps.getGeneratedKeys()) {
-                    rs.next();
-                    return new Area(rs.getLong(1), valido);
-                }
-            }
-        });
+        String nomeValido = textoObrigatorio(nome, "Nome da área");
+        return executarDAO(() -> areaDAO.cadastrar(new Area(null, nomeValido)));
     }
 
     @Override
     public Area editar(Usuario ator, Long areaId, String novoNome) {
         exigirPerfil(ator, Perfil.ADMINISTRADOR, "editar áreas");
-        if (areaId == null || areaId <= 0) throw new IllegalArgumentException("Área inválida.");
-        String valido = textoObrigatorio(novoNome, "Nome da área");
-        return transacionar(conexao -> {
-            Area area = buscarArea(conexao, areaId);
-            try (PreparedStatement ps = conexao.prepareStatement("UPDATE areas SET nome = ? WHERE id = ?")) {
-                ps.setString(1, valido);
-                ps.setLong(2, areaId);
-                ps.executeUpdate();
-            }
-            return new Area(areaId, valido);
-        });
+        Area area = buscarArea(areaId);
+        String nomeValido = textoObrigatorio(novoNome, "Nome da área");
+        Area atualizada = new Area(area.getId(), nomeValido);
+        boolean alterada = executarDAO(() -> areaDAO.atualizar(atualizada));
+        if (!alterada) throw new RegraNegocioException("A área não foi encontrada.");
+        return atualizada;
     }
 
     @Override
     public void excluir(Usuario ator, Long areaId) {
         exigirPerfil(ator, Perfil.ADMINISTRADOR, "excluir áreas");
-        if (areaId == null || areaId <= 0) throw new IllegalArgumentException("Área inválida.");
-        transacionar(conexao -> {
-            buscarArea(conexao, areaId);
-            try (PreparedStatement ps = conexao.prepareStatement("DELETE FROM areas WHERE id = ?")) {
-                ps.setLong(1, areaId);
-                ps.executeUpdate();
-            }
-            return null;
-        });
+        buscarArea(areaId);
+        boolean excluida = executarDAO(() -> areaDAO.excluir(areaId));
+        if (!excluida) throw new RegraNegocioException("A área não foi encontrada.");
     }
 
     @Override
     public List<Area> listar() {
-        return consultar(conexao -> {
-            List<Area> areas = new ArrayList<>();
-            try (PreparedStatement ps = conexao.prepareStatement("SELECT id, nome FROM areas ORDER BY nome");
-                 ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) areas.add(new Area(rs.getLong("id"), rs.getString("nome")));
-            }
-            return List.copyOf(areas);
-        });
+        return executarDAO(areaDAO::listarTodas);
     }
 
     @Override
     public Vaga publicar(Usuario ator, String titulo, String descricao, Long areaId,
                          String localizacao, Modalidade modalidade, int carga) {
-        exigirPerfil(ator, Perfil.EMPRESA, "publicar vagas");
-        if (areaId == null || areaId <= 0) throw new IllegalArgumentException("Área inválida.");
-        validarVaga(titulo, modalidade, carga);
-        return transacionar(conexao -> {
-            Area area = buscarArea(conexao, areaId);
-            String sql = """
-                    INSERT INTO vagas
-                        (empresa_id, area_id, titulo, descricao, localizacao, modalidade, carga_horaria_semanal)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
-                    """;
-            try (PreparedStatement ps = conexao.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
-                ps.setLong(1, ator.getId());
-                ps.setLong(2, areaId);
-                ps.setString(3, titulo.trim());
-                ps.setString(4, descricao);
-                ps.setString(5, localizacao);
-                ps.setString(6, modalidade.name());
-                ps.setInt(7, carga);
-                ps.executeUpdate();
-                try (ResultSet rs = ps.getGeneratedKeys()) {
-                    rs.next();
-                    return new Vaga(rs.getLong(1), (Empresa) ator, titulo.trim(), descricao,
-                            area, localizacao, modalidade, carga);
-                }
-            }
-        });
+        Empresa empresa = exigirEmpresa(ator, "publicar vagas");
+        String tituloValido = textoObrigatorio(titulo, "Título");
+        Area area = buscarArea(areaId);
+        if (modalidade == null) throw new IllegalArgumentException("Modalidade obrigatória.");
+        if (carga <= 0) throw new IllegalArgumentException("Carga horária deve ser positiva.");
+        Vaga vaga = new Vaga(null, empresa, tituloValido, descricao, area, localizacao, modalidade, carga);
+        return executarDAO(() -> vagaDAO.publicar(vaga));
     }
 
     @Override
@@ -446,89 +227,32 @@ public final class ServicosJDBC implements UsuarioService, AreaService, VagaServ
                        String localizacao, Modalidade modalidade, int carga) {
         Vaga atual = vagaDaEmpresa(ator, vagaId);
         if (!atual.estaAberta()) throw new RegraNegocioException("Vaga encerrada não pode ser editada.");
-        validarVaga(titulo, modalidade, carga);
-        if (areaId == null || areaId <= 0) throw new IllegalArgumentException("Área inválida.");
-        return transacionar(conexao -> {
-            Area area = buscarArea(conexao, areaId);
-            String sql = """
-                    UPDATE vagas SET area_id = ?, titulo = ?, descricao = ?, localizacao = ?,
-                        modalidade = ?, carga_horaria_semanal = ?
-                    WHERE id = ? AND empresa_id = ? AND situacao = 'ABERTA'
-                    """;
-            try (PreparedStatement ps = conexao.prepareStatement(sql)) {
-                ps.setLong(1, areaId);
-                ps.setString(2, titulo.trim());
-                ps.setString(3, descricao);
-                ps.setString(4, localizacao);
-                ps.setString(5, modalidade.name());
-                ps.setInt(6, carga);
-                ps.setLong(7, vagaId);
-                ps.setLong(8, ator.getId());
-                if (ps.executeUpdate() == 0) throw new RegraNegocioException("A vaga não está mais disponível.");
-            }
-            Vaga editada = new Vaga(vagaId, (Empresa) ator, titulo.trim(), descricao,
-                    area, localizacao, modalidade, carga);
-            return editada;
-        });
+        String tituloValido = textoObrigatorio(titulo, "Título");
+        Area area = buscarArea(areaId);
+        if (modalidade == null) throw new IllegalArgumentException("Modalidade obrigatória.");
+        if (carga <= 0) throw new IllegalArgumentException("Carga horária deve ser positiva.");
+
+        Vaga editada = new Vaga(atual.getId(), atual.getEmpresa(), tituloValido, descricao,
+                area, localizacao, modalidade, carga);
+        boolean atualizada = executarDAO(() -> vagaDAO.atualizar(editada));
+        if (!atualizada) throw new RegraNegocioException("A vaga não está mais disponível.");
+        return editada;
     }
 
     @Override
     public void encerrar(Usuario ator, Long vagaId) {
         Vaga vaga = vagaDaEmpresa(ator, vagaId);
         if (!vaga.estaAberta()) throw new RegraNegocioException("A vaga já está encerrada.");
-        transacionar(conexao -> {
-            try (PreparedStatement ps = conexao.prepareStatement(
-                    "UPDATE vagas SET situacao = 'ENCERRADA' WHERE id = ? AND empresa_id = ? AND situacao = 'ABERTA'")) {
-                ps.setLong(1, vagaId);
-                ps.setLong(2, ator.getId());
-                if (ps.executeUpdate() == 0) throw new RegraNegocioException("A vaga já está encerrada.");
-            }
-            return null;
-        });
-    }
-
-    private void validarVaga(String titulo, Modalidade modalidade, int carga) {
-        textoObrigatorio(titulo, "Título");
-        if (modalidade == null) throw new IllegalArgumentException("Modalidade obrigatória.");
-        if (carga <= 0) throw new IllegalArgumentException("Carga horária deve ser positiva.");
-    }
-
-    private static String sqlVagas() {
-        return """
-                SELECT v.id, v.titulo, v.descricao, v.localizacao, v.modalidade, v.carga_horaria_semanal,
-                       v.situacao, a.id AS area_id, a.nome AS area_nome,
-                       u.id AS empresa_id, u.nome AS empresa_responsavel, u.email AS empresa_email,
-                       e.nome_empresa
-                FROM vagas v
-                JOIN areas a ON a.id = v.area_id
-                JOIN empresas e ON e.usuario_id = v.empresa_id
-                JOIN usuarios u ON u.id = e.usuario_id
-                """;
-    }
-
-    private Vaga mapearVaga(ResultSet rs) throws SQLException {
-        Empresa empresa = new Empresa(rs.getLong("empresa_id"), rs.getString("empresa_responsavel"),
-                rs.getString("empresa_email"), rs.getString("nome_empresa"));
-        Vaga vaga = new Vaga(rs.getLong("id"), empresa, rs.getString("titulo"),
-                rs.getString("descricao"), new Area(rs.getLong("area_id"), rs.getString("area_nome")),
-                rs.getString("localizacao"), Modalidade.valueOf(rs.getString("modalidade")),
-                rs.getInt("carga_horaria_semanal"));
-        if (SituacaoVaga.ENCERRADA.name().equals(rs.getString("situacao"))) vaga.encerrar();
-        return vaga;
+        boolean encerrada = executarDAO(() -> vagaDAO.encerrar(vagaId));
+        if (!encerrada) throw new RegraNegocioException("A vaga já está encerrada.");
     }
 
     @Override
     public List<Vaga> listarAbertas(Long areaId, Modalidade modalidade) {
-        List<Vaga> abertas = consultar(conexao -> {
-            List<Vaga> resultado = new ArrayList<>();
-            String sql = sqlVagas() + " WHERE v.situacao = 'ABERTA' ORDER BY v.id";
-            try (PreparedStatement ps = conexao.prepareStatement(sql);
-                 ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) resultado.add(mapearVaga(rs));
-            }
-            return resultado;
-        });
-        // Predicate compõe filtros opcionais, sem duplicar a lógica para cada combinação possível.
+        if (areaId != null && areaId <= 0) throw new IllegalArgumentException("Área inválida.");
+        List<Vaga> abertas = executarDAO(
+                () -> vagaDAO.listarComFiltros(null, null, SituacaoVaga.ABERTA, null));
+
         Predicate<Vaga> filtro = Vaga::estaAberta;
         if (areaId != null) filtro = filtro.and(v -> v.getArea().getId().equals(areaId));
         if (modalidade != null) filtro = filtro.and(v -> v.getModalidade() == modalidade);
@@ -537,130 +261,45 @@ public final class ServicosJDBC implements UsuarioService, AreaService, VagaServ
 
     @Override
     public List<Vaga> listarDaEmpresa(Usuario ator) {
-        exigirPerfil(ator, Perfil.EMPRESA, "listar suas vagas");
-        return consultar(conexao -> {
-            List<Vaga> resultado = new ArrayList<>();
-            String sql = sqlVagas() + " WHERE v.empresa_id = ? ORDER BY v.id";
-            try (PreparedStatement ps = conexao.prepareStatement(sql)) {
-                ps.setLong(1, ator.getId());
-                try (ResultSet rs = ps.executeQuery()) {
-                    while (rs.next()) resultado.add(mapearVaga(rs));
-                }
-            }
-            return List.copyOf(resultado);
-        });
-    }
-
-    private Vaga vagaDaEmpresa(Usuario ator, Long vagaId) {
-        exigirPerfil(ator, Perfil.EMPRESA, "gerenciar vagas");
-        if (vagaId == null || vagaId <= 0) throw new IllegalArgumentException("Vaga inválida.");
-        Vaga vaga = consultar(conexao -> buscarVaga(conexao, vagaId));
-        if (!vaga.getEmpresa().getId().equals(ator.getId())) {
-            throw new AcessoNegadoException("Esta vaga pertence a outra empresa.");
-        }
-        return vaga;
-    }
-
-    private Estudante buscarEstudante(Connection conexao, long id) throws SQLException {
-        String sql = """
-                SELECT u.id, u.nome, u.email, e.curso
-                FROM usuarios u JOIN estudantes e ON e.usuario_id = u.id
-                WHERE u.id = ?
-                """;
-        try (PreparedStatement ps = conexao.prepareStatement(sql)) {
-            ps.setLong(1, id);
-            try (ResultSet rs = ps.executeQuery()) {
-                if (!rs.next()) throw new RegraNegocioException("Estudante não encontrado.");
-                return new Estudante(rs.getLong("id"), rs.getString("nome"),
-                        rs.getString("email"), rs.getString("curso"));
-            }
-        }
+        Empresa empresa = exigirEmpresa(ator, "listar suas vagas");
+        return executarDAO(() -> vagaDAO.listarPorEmpresa(empresa.getId()));
     }
 
     @Override
     public Candidatura candidatar(Usuario ator, Long vagaId) {
-        exigirPerfil(ator, Perfil.ESTUDANTE, "se candidatar");
-        if (vagaId == null || vagaId <= 0) throw new IllegalArgumentException("Vaga inválida.");
-        return transacionar(conexao -> {
-            Vaga vaga = buscarVaga(conexao, vagaId);
-            if (!vaga.estaAberta()) throw new RegraNegocioException("A vaga está encerrada.");
-            String sql = "INSERT INTO candidaturas (estudante_id, vaga_id) VALUES (?, ?)";
-            try (PreparedStatement ps = conexao.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
-                ps.setLong(1, ator.getId());
-                ps.setLong(2, vagaId);
-                ps.executeUpdate();
-                try (ResultSet rs = ps.getGeneratedKeys()) {
-                    rs.next();
-                    return new Candidatura(rs.getLong(1), (Estudante) ator, vaga, LocalDate.now());
-                }
-            }
-        });
-    }
-
-    private List<Candidatura> listarCandidaturas(String condicao, long id) {
-        return consultar(conexao -> {
-            String sql = """
-                    SELECT c.id, c.data_inscricao, u.id AS estudante_id, u.nome AS estudante_nome,
-                           u.email AS estudante_email, e.curso, c.vaga_id
-                    FROM candidaturas c
-                    JOIN estudantes e ON e.usuario_id = c.estudante_id
-                    JOIN usuarios u ON u.id = e.usuario_id
-                    WHERE
-                    """ + condicao + " ORDER BY c.id";
-            List<Candidatura> resultado = new ArrayList<>();
-            try (PreparedStatement ps = conexao.prepareStatement(sql)) {
-                ps.setLong(1, id);
-                try (ResultSet rs = ps.executeQuery()) {
-                    while (rs.next()) {
-                        Estudante estudante = new Estudante(rs.getLong("estudante_id"),
-                                rs.getString("estudante_nome"), rs.getString("estudante_email"),
-                                rs.getString("curso"));
-                        Vaga vaga = buscarVaga(conexao, rs.getLong("vaga_id"));
-                        resultado.add(new Candidatura(rs.getLong("id"), estudante, vaga,
-                                rs.getDate("data_inscricao").toLocalDate()));
-                    }
-                }
-            }
-            return List.copyOf(resultado);
-        });
+        Estudante estudante = exigirEstudante(ator, "se candidatar");
+        Vaga vaga = buscarVaga(vagaId);
+        if (!vaga.estaAberta()) throw new RegraNegocioException("A vaga está encerrada.");
+        boolean duplicada = executarDAO(
+                () -> candidaturaDAO.existePorEstudanteEVaga(estudante.getId(), vaga.getId()));
+        if (duplicada) throw new RegraNegocioException("Você já se candidatou a esta vaga.");
+        Candidatura candidatura = new Candidatura(null, estudante, vaga, LocalDate.now());
+        return executarDAO(() -> candidaturaDAO.cadastrar(candidatura));
     }
 
     @Override
     public List<Candidatura> listarMinhas(Usuario ator) {
-        exigirPerfil(ator, Perfil.ESTUDANTE, "consultar candidaturas");
-        return listarCandidaturas("c.estudante_id = ?", ator.getId());
+        Estudante estudante = exigirEstudante(ator, "consultar candidaturas");
+        return executarDAO(() -> candidaturaDAO.listarPorEstudante(estudante.getId()));
     }
 
     @Override
     public List<Candidatura> listarCandidatos(Usuario ator, Long vagaId) {
         Vaga vaga = vagaDaEmpresa(ator, vagaId);
-        return listarCandidaturas("c.vaga_id = ?", vaga.getId());
+        return executarDAO(() -> candidaturaDAO.listarPorVaga(vaga.getId()));
     }
 
     @Override
     public Map<String, Long> contagens(Usuario ator) {
         exigirPerfil(ator, Perfil.ADMINISTRADOR, "ver as contagens");
-        return consultar(conexao -> {
-            String sql = """
-                    SELECT
-                      (SELECT count(*) FROM estudantes) AS estudantes,
-                      (SELECT count(*) FROM empresas) AS empresas,
-                      (SELECT count(*) FROM vagas WHERE situacao = 'ABERTA') AS abertas,
-                      (SELECT count(*) FROM vagas WHERE situacao = 'ENCERRADA') AS encerradas,
-                      (SELECT count(*) FROM candidaturas) AS candidaturas
-                    """;
-            Map<String, Long> resultado = new LinkedHashMap<>();
-            try (PreparedStatement ps = conexao.prepareStatement(sql);
-                 ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) {
-                    resultado.put("Estudantes", rs.getLong("estudantes"));
-                    resultado.put("Empresas", rs.getLong("empresas"));
-                    resultado.put("Vagas abertas", rs.getLong("abertas"));
-                    resultado.put("Vagas encerradas", rs.getLong("encerradas"));
-                    resultado.put("Candidaturas", rs.getLong("candidaturas"));
-                }
-            }
-            return resultado;
-        });
+        Map<String, Long> contagens = new LinkedHashMap<>();
+        contagens.put("Estudantes", executarDAO(estatisticaDAO::contarEstudantes));
+        contagens.put("Empresas", executarDAO(estatisticaDAO::contarEmpresas));
+        contagens.put("Vagas abertas", executarDAO(
+                () -> estatisticaDAO.contarVagasPorSituacao(SituacaoVaga.ABERTA)));
+        contagens.put("Vagas encerradas", executarDAO(
+                () -> estatisticaDAO.contarVagasPorSituacao(SituacaoVaga.ENCERRADA)));
+        contagens.put("Candidaturas", executarDAO(estatisticaDAO::contarCandidaturas));
+        return contagens;
     }
 }
