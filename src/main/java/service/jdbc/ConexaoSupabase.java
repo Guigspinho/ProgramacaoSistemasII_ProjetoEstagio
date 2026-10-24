@@ -8,8 +8,8 @@ import java.sql.SQLException;
 /** Cria conexões JDBC com PostgreSQL/Supabase usando configuração externa. */
 public final class ConexaoSupabase {
     private static final String URL_PADRAO =
-            "jdbc:postgresql://db.wcljsklgabcmxqjnyalf.supabase.co:5432/postgres?sslmode=require";
-    private static final String USUARIO_PADRAO = "postgres";
+            "jdbc:postgresql://aws-0-us-east-1.pooler.supabase.com:5432/postgres?sslmode=require";
+    private static final String USUARIO_PADRAO = "postgres.wcljsklgabcmxqjnyalf";
 
     private final String url;
     private final String usuario;
