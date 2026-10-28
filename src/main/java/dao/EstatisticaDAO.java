@@ -2,22 +2,14 @@ package dao;
 
 import model.SituacaoVaga;
 
-import java.sql.SQLException;
-
-/** Define consultas de contagem para os indicadores administrativos. */
+/** Consultas de contagem usadas pelo administrador. */
 public interface EstatisticaDAO {
 
-    long contarUsuarios() throws SQLException;
+    long contarEstudantes();
 
-    long contarEstudantes() throws SQLException;
+    long contarEmpresas();
 
-    long contarEmpresas() throws SQLException;
+    long contarVagasPorSituacao(SituacaoVaga situacao);
 
-    long contarAreas() throws SQLException;
-
-    long contarVagas() throws SQLException;
-
-    long contarVagasPorSituacao(SituacaoVaga situacao) throws SQLException;
-
-    long contarCandidaturas() throws SQLException;
+    long contarCandidaturas();
 }

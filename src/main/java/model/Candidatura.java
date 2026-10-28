@@ -10,11 +10,10 @@ public class Candidatura {
     private final LocalDate dataInscricao;
 
     public Candidatura(Long id, Estudante estudante, Vaga vaga, LocalDate dataInscricao) {
-        if (estudante == null || vaga == null) throw new IllegalArgumentException("Estudante e vaga obrigatórios");
         this.id = id;
         this.estudante = estudante;
         this.vaga = vaga;
-        this.dataInscricao = dataInscricao != null ? dataInscricao : LocalDate.now();
+        this.dataInscricao = dataInscricao;
     }
 
     public Long getId() { return id; }

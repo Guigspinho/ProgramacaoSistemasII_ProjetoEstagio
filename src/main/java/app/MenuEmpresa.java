@@ -51,7 +51,7 @@ public class MenuEmpresa {
         telaVagas.mostrarAreas();
         Long areaId = entrada.lerLong("ID da área");
         String local = entrada.lerTextoOpcional("Localização");
-        Modalidade modalidade = entrada.lerEnum("Modalidade", Modalidade.class);
+        Modalidade modalidade = entrada.lerModalidade("Modalidade");
         int carga = entrada.lerInt("Carga horária semanal (horas)");
         Vaga v = vagaService.publicar(ator, titulo, descricao, areaId, local, modalidade, carga);
         System.out.println("Vaga publicada: " + v);
@@ -66,7 +66,7 @@ public class MenuEmpresa {
         telaVagas.mostrarAreas();
         Long areaId = entrada.lerLong("ID da área");
         String local = entrada.lerTextoOpcional("Localização");
-        Modalidade modalidade = entrada.lerEnum("Modalidade", Modalidade.class);
+        Modalidade modalidade = entrada.lerModalidade("Modalidade");
         int carga = entrada.lerInt("Carga horária semanal (horas)");
         Vaga v = vagaService.editar(ator, vagaId, titulo, descricao, areaId, local, modalidade, carga);
         System.out.println("Vaga atualizada: " + v);
@@ -83,8 +83,10 @@ public class MenuEmpresa {
         Long vagaId = entrada.lerLong("ID da vaga");
         List<Candidatura> lista = candidaturaService.listarCandidatos(ator, vagaId);
         if (lista.isEmpty()) System.out.println("Nenhum candidato para esta vaga.");
-        lista.forEach(c -> System.out.println(
-                "  " + c.getEstudante().getNome() + " <" + c.getEstudante().getEmail() + ">"
-                + " - " + c.getEstudante().getCurso() + " (inscrito em " + c.getDataInscricao() + ")"));
+        for (Candidatura c : lista) {
+            Estudante e = c.getEstudante();
+            System.out.println("  " + e.getNome() + " <" + e.getEmail() + ">"
+                    + " - " + e.getCurso() + " (inscrito em " + c.getDataInscricao() + ")");
+        }
     }
 }

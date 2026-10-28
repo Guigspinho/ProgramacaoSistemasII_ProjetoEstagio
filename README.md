@@ -25,7 +25,7 @@ aplicação sempre usa JDBC, portanto o banco precisa estar configurado e acess�
 iniciar.
 
 A conexão padrão usa o Session pooler configurado em
-[`ConexaoSupabase.java`](src/main/java/service/jdbc/ConexaoSupabase.java). Defina a
+[`ConexaoSupabase.java`](src/main/java/dao/jdbc/ConexaoSupabase.java). Defina a
 senha no ambiente; não a grave no código, em arquivos do repositório, no README ou no
 ZIP enviado:
 
@@ -70,16 +70,20 @@ O caminho de uma operação é:
 
 **Menu (apresentação) → Service (regras de negócio) → interface DAO → implementação JDBC → PostgreSQL**
 
-- `app`: menus, entrada e apresentação dos resultados; não contém SQL.
-- `model`: entidades, associações e enums do domínio.
-- `service`: valida perfil, propriedade dos dados e regras de negócio; coordena a operação.
-- `dao`: contratos de persistência, independentes do banco.
-- `dao.jdbc`: implementações JDBC dos contratos, mapeamento de resultados e inicialização do banco.
+- `app`: menus, entrada e apresentação dos resultados; não contém SQL. `Main` monta as camadas.
+- `model`: entidades, associações e enums do domínio (classes só com dados).
+- `service`: uma classe por assunto (`UsuarioService`, `AreaService`, `VagaService`,
+  `CandidaturaService`, `RelatorioService`). Validam entradas, perfil e propriedade dos
+  dados e aplicam as regras de negócio. `Validacao` reúne as verificações repetidas.
+- `dao`: interfaces de persistência, independentes do banco (não mencionam SQL).
+- `dao.jdbc`: implementações JDBC das interfaces, mapeamento de resultados
+  (`JdbcMapeadores`), conexão (`ConexaoSupabase`) e inicialização do banco.
 - `exception`: erros de acesso, regras de negócio e persistência.
 
-As dependências dos menus são recebidas por construtor. Os serviços também oferecem
-construtor com interfaces DAO, permitindo trocar as implementações e testar as regras
-isoladamente. `Main` usa a implementação JDBC conectada ao Supabase.
+As dependências são recebidas por construtor e montadas em
+[`Main`](src/main/java/app/Main.java): conexão → DAOs → serviços → menus. Cada serviço
+recebe apenas as interfaces DAO de que precisa, o que permite trocar a implementação
+(por exemplo, por uma em memória) e testar as regras isoladamente.
 
 As vagas aceitam carga horária semanal de 1 a 30 horas.
 
@@ -104,14 +108,19 @@ estudante–vaga.
 
 Os DAOs usam `PreparedStatement`, fecham conexões, comandos e resultados com
 `try-with-resources` e usam transações quando uma operação grava mais de uma tabela.
-Falhas SQL são convertidas em exceções de persistência ou de regra de negócio tratadas
-pelo menu. Entradas numéricas e opções inválidas são solicitadas novamente.
+Os DAOs JDBC capturam `SQLException` e a convertem em `PersistenciaException`, que o menu
+trata sem encerrar a aplicação. Duplicidades (e-mail, nome de área e candidatura) e uso de
+área por vagas são verificados pelo serviço antes de gravar, com mensagem clara; as
+restrições do banco continuam como garantia final. Entradas numéricas e opções inválidas
+são solicitadas novamente.
 
 ### Interface funcional e lambda
 
-Na consulta de vagas abertas, `Predicate<Vaga>` combina o predicado `Vaga::estaAberta`
-com lambdas para os filtros opcionais de área e modalidade. Isso permite compor os
-critérios selecionados sem criar uma ramificação de código para cada combinação possível.
+Em `VagaService.listarAbertas`, `Predicate<Vaga>` é a interface funcional (um único método,
+`test`, que devolve `true` ou `false`). A lambda descreve o critério "a vaga atende aos
+filtros de área e modalidade escolhidos?" e `stream().filter(...)` a aplica a cada vaga
+aberta. Uma só lambda cobre todas as combinações (sem filtro, só área, só modalidade ou
+ambos), sem uma ramificação de código para cada caso.
 
 ## Regras demonstráveis
 
@@ -155,13 +164,23 @@ automaticamente e podem não ser sequenciais; use os IDs apresentados na execuç
 
 ## Registro de uso de IA
 
-Interação registrada: foi solicitada uma revisão do projeto contra o enunciado da
-Entrega 1. A revisão identificou a necessidade de separar regras de negócio dos DAOs
-JDBC e de criar um script SQL para esquema e dados fictícios. Em seguida, foi solicitada
-a implementação dessa separação e do script; os serviços passaram a delegar às interfaces
-DAO, e foram criadas implementações JDBC e o arquivo `estrutura-e-dados.sql`.
+Interação 1: foi solicitada uma revisão do projeto contra o enunciado da Entrega 1. A
+revisão identificou a necessidade de separar regras de negócio dos DAOs JDBC e de criar um
+script SQL para esquema e dados fictícios. Em seguida, foi solicitada a implementação dessa
+separação e do script; os serviços passaram a delegar às interfaces DAO, e foram criadas
+implementações JDBC e o arquivo `estrutura-e-dados.sql`.
 
-O grupo deve revisar esse registro, acrescentar a ferramenta/data exigida pelo professor
+Interação 2: o grupo pediu uma simplificação do código, por considerá-lo mais sofisticado
+do que o conteúdo estudado. A IA apontou os trechos mais complexos e o código foi
+reescrito mantendo o comportamento: classes anônimas e genéricos nos DAOs JDBC viraram
+JDBC direto com `try-with-resources`; a classe única de serviços foi dividida em cinco
+serviços; `Optional`, `switch` com seta, blocos de texto e `instanceof` com padrão foram
+substituídos por `null`, `if` e `switch` tradicionais, texto concatenado e cast; a
+validação duplicada entre modelo e serviço ficou só no serviço; os DAOs de estudante e
+empresa foram unificados em `UsuarioDAO`. O comportamento foi comparado com a versão
+anterior executando o mesmo roteiro de entradas num PostgreSQL local.
+
+O grupo deve revisar este registro, acrescentar a ferramenta/data exigida pelo professor
 se necessário e garantir que cada integrante consiga explicar e verificar o código.
 
 ## Material para envio no Moodle

@@ -1,22 +1,56 @@
 package app;
 
+import dao.AreaDAO;
+import dao.CandidaturaDAO;
+import dao.EstatisticaDAO;
+import dao.UsuarioDAO;
+import dao.VagaDAO;
+import dao.jdbc.ConexaoSupabase;
+import dao.jdbc.InicializadorBanco;
+import dao.jdbc.JdbcAreaDAO;
+import dao.jdbc.JdbcCandidaturaDAO;
+import dao.jdbc.JdbcEstatisticaDAO;
+import dao.jdbc.JdbcUsuarioDAO;
+import dao.jdbc.JdbcVagaDAO;
 import exception.PersistenciaException;
 import java.util.NoSuchElementException;
 import java.util.Scanner;
-import service.jdbc.ServicosJDBC;
+import service.AreaService;
+import service.CandidaturaService;
+import service.RelatorioService;
+import service.UsuarioService;
+import service.VagaService;
 
 /**
- * Ponto de entrada. Usa os serviços JDBC conectados ao Supabase.
+ * Ponto de entrada. Monta as camadas de baixo para cima:
+ * conexão -> DAOs (JDBC) -> serviços -> menus.
  */
 public class Main {
     public static void main(String[] args) {
-        Scanner scanner = new Scanner(System.in);
-        Entrada entrada = new Entrada(scanner);
+        Entrada entrada = new Entrada(new Scanner(System.in));
 
-        final MenuPrincipal menu;
+        MenuPrincipal menu;
         try {
-            ServicosJDBC servicos = new ServicosJDBC();
-            menu = new MenuPrincipal(entrada, servicos, servicos, servicos, servicos, servicos);
+            ConexaoSupabase conexao = new ConexaoSupabase();
+            new InicializadorBanco(conexao).inicializar();
+
+            // Persistência: cada DAO é uma interface com implementação JDBC.
+            UsuarioDAO usuarioDAO = new JdbcUsuarioDAO(conexao);
+            AreaDAO areaDAO = new JdbcAreaDAO(conexao);
+            VagaDAO vagaDAO = new JdbcVagaDAO(conexao);
+            CandidaturaDAO candidaturaDAO = new JdbcCandidaturaDAO(conexao);
+            EstatisticaDAO estatisticaDAO = new JdbcEstatisticaDAO(conexao);
+
+            // Regras de negócio: cada serviço recebe os DAOs de que precisa.
+            UsuarioService usuarioService = new UsuarioService(usuarioDAO);
+            AreaService areaService = new AreaService(areaDAO);
+            VagaService vagaService = new VagaService(vagaDAO, areaDAO);
+            CandidaturaService candidaturaService = new CandidaturaService(candidaturaDAO, vagaDAO);
+            RelatorioService relatorioService = new RelatorioService(estatisticaDAO);
+
+            // Apresentação: o menu só conhece os serviços.
+            menu = new MenuPrincipal(entrada, usuarioService, areaService, vagaService,
+                    candidaturaService, relatorioService);
         } catch (PersistenciaException | IllegalStateException e) {
             System.out.println("[Erro de dados] " + e.getMessage());
             System.out.println("A aplicação será encerrada sem alterar os dados existentes.");

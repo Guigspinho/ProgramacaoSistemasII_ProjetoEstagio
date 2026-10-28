@@ -55,7 +55,6 @@ class Vaga {
   - cargaHorariaSemanal : int
   - situacao : SituacaoVaga
   + estaAberta() : boolean
-  + encerrar() : void
 }
 
 

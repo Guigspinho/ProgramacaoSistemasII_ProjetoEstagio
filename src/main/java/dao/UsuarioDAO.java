@@ -1,23 +1,22 @@
 package dao;
 
+import java.util.List;
+import model.Empresa;
+import model.Estudante;
 import model.Usuario;
 
-import java.sql.SQLException;
-import java.util.List;
-import java.util.Optional;
-
-/**
- * Define as consultas comuns aos usuários do sistema.
- * A implementação JDBC ficará no pacote dao.jdbc.
- */
+/** Operações de persistência para usuários (estudantes, empresas e administradores). */
 public interface UsuarioDAO {
 
-    /** Busca um usuário pelo identificador. */
-    Optional<Usuario> buscarPorId(Long id) throws SQLException;
+    /** Grava o estudante (tabelas usuarios e estudantes) e devolve-o com o ID gerado. */
+    Estudante cadastrarEstudante(Estudante estudante);
 
-    /** Busca um usuário pelo e-mail. */
-    Optional<Usuario> buscarPorEmail(String email) throws SQLException;
+    /** Grava a empresa (tabelas usuarios e empresas) e devolve-a com o ID gerado. */
+    Empresa cadastrarEmpresa(Empresa empresa);
 
-    /** Lista os usuários cadastrados, incluindo seus perfis concretos. */
-    List<Usuario> listarTodos() throws SQLException;
+    /** Devolve o usuário ou null se o e-mail não existir. */
+    Usuario buscarPorEmail(String email);
+
+    /** Todos os usuários, já como Estudante, Empresa ou Administrador. */
+    List<Usuario> listarTodos();
 }

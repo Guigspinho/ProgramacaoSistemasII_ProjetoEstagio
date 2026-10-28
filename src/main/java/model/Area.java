@@ -5,7 +5,6 @@ public class Area {
     private String nome;
 
     public Area(Long id, String nome) {
-        if (nome == null || nome.isBlank()) throw new IllegalArgumentException("Nome da área obrigatório");
         this.id = id;
         this.nome = nome;
     }

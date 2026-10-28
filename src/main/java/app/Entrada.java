@@ -1,6 +1,7 @@
 package app;
 
 import java.util.Scanner;
+import model.Modalidade;
 
 /**
  * Leitura segura do console. Repete a pergunta quando o valor é inválido,
@@ -67,27 +68,34 @@ public class Entrada {
         }
     }
 
-    /** Mostra os valores do enum numerados e lê a escolha. */
-    public <E extends Enum<E>> E lerEnum(String rotulo, Class<E> tipo) {
-        E[] valores = tipo.getEnumConstants();
-        System.out.println(rotulo + ":");
-        for (int i = 0; i < valores.length; i++) System.out.println("  " + (i + 1) + " - " + valores[i]);
+    /** Mostra as modalidades numeradas e lê a escolha. */
+    public Modalidade lerModalidade(String rotulo) {
+        Modalidade[] valores = Modalidade.values();
+        mostrarModalidades(rotulo, valores);
         return valores[lerOpcao("Escolha", 1, valores.length) - 1];
     }
 
-    /** Como lerEnum, mas Enter em branco devolve null (sem filtro). */
-    public <E extends Enum<E>> E lerEnumOpcional(String rotulo, Class<E> tipo) {
-        E[] valores = tipo.getEnumConstants();
-        System.out.println(rotulo + ":");
-        for (int i = 0; i < valores.length; i++) System.out.println("  " + (i + 1) + " - " + valores[i]);
+    /** Como lerModalidade, mas Enter em branco devolve null (sem filtro). */
+    public Modalidade lerModalidadeOpcional(String rotulo) {
+        Modalidade[] valores = Modalidade.values();
+        mostrarModalidades(rotulo, valores);
         while (true) {
             String s = lerLinha("Escolha (Enter para pular)").trim();
             if (s.isEmpty()) return null;
             try {
                 int n = Integer.parseInt(s);
                 if (n >= 1 && n <= valores.length) return valores[n - 1];
-            } catch (NumberFormatException ignored) { }
+            } catch (NumberFormatException e) {
+                // cai na mensagem abaixo
+            }
             System.out.println("  Opção inválida.");
+        }
+    }
+
+    private void mostrarModalidades(String rotulo, Modalidade[] valores) {
+        System.out.println(rotulo + ":");
+        for (int i = 0; i < valores.length; i++) {
+            System.out.println("  " + (i + 1) + " - " + valores[i]);
         }
     }
 }
