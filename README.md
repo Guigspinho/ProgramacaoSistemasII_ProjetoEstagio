@@ -10,7 +10,7 @@ Preencher antes de enviar:
 
 - Guilherme Gomes Pinho — 10755529
 - Moabe Guedes da Silva Rego — 10748053
-- Ryan Sousa — 10757255
+- Leonardo Fiori — 10736628
 
 ## Requisitos
 
