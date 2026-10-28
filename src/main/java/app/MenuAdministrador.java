@@ -1,6 +1,5 @@
 package app;
 
-import java.util.Map;
 import model.*;
 import service.*;
 
@@ -62,8 +61,11 @@ public class MenuAdministrador {
     }
 
     private void contagens(Usuario ator) {
-        Map<String, Long> dados = relatorioService.contagens(ator);
+        long[] dados = relatorioService.contagens(ator);
+        String[] categorias = {"Estudantes", "Empresas", "Vagas abertas", "Vagas encerradas", "Candidaturas"};
         System.out.println("--- Contagens do portal ---");
-        dados.forEach((rotulo, qtd) -> System.out.println("  " + rotulo + ": " + qtd));
+        for (int i = 0; i < categorias.length; i++) {
+            System.out.println("  " + categorias[i] + ": " + dados[i]);
+        }
     }
 }

@@ -45,6 +45,8 @@ public class MenuEstudante {
     private void minhasCandidaturas(Usuario ator) {
         List<Candidatura> lista = candidaturaService.listarMinhas(ator);
         if (lista.isEmpty()) System.out.println("Você ainda não tem candidaturas.");
-        lista.forEach(System.out::println);
+        for (Candidatura c : lista) {
+            System.out.println(c);
+        }
     }
 }

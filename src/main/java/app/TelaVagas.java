@@ -20,7 +20,7 @@ public class TelaVagas {
     public void consultarAbertas() {
         mostrarAreas();
         Long areaId = entrada.lerLongOpcional("Filtrar por ID da área");
-        Modalidade modalidade = entrada.lerEnumOpcional("Filtrar por modalidade", Modalidade.class);
+        Modalidade modalidade = entrada.lerModalidadeOpcional("Filtrar por modalidade");
         listar(vagaService.listarAbertas(areaId, modalidade));
     }
 
@@ -29,13 +29,17 @@ public class TelaVagas {
             System.out.println("Nenhuma vaga encontrada.");
             return;
         }
-        vagas.forEach(System.out::println);
+        for (Vaga vaga : vagas) {
+            System.out.println(vaga);
+        }
     }
 
     public void mostrarAreas() {
         List<Area> areas = areaService.listar();
         System.out.println("Áreas:");
         if (areas.isEmpty()) System.out.println("  (nenhuma cadastrada)");
-        areas.forEach(a -> System.out.println("  [" + a.getId() + "] " + a.getNome()));
+        for (Area a : areas) {
+            System.out.println("  [" + a.getId() + "] " + a.getNome());
+        }
     }
 }

@@ -1,9 +1,27 @@
 package service;
 
-import java.util.Map;
+import dao.EstatisticaDAO;
+import model.Perfil;
+import model.SituacaoVaga;
 import model.Usuario;
 
-public interface RelatorioService {
-    /** Rótulo -> quantidade (estudantes, empresas, vagas abertas, vagas encerradas, candidaturas). */
-    Map<String, Long> contagens(Usuario ator);
+public class RelatorioService {
+    private final EstatisticaDAO estatisticaDAO;
+
+    public RelatorioService(EstatisticaDAO estatisticaDAO) {
+        this.estatisticaDAO = estatisticaDAO;
+    }
+
+    /** Rótulo -> quantidade. Somente o administrador pode consultar. */
+    public long[] contagens(Usuario ator) {
+        Validacao.exigirPerfil(ator, Perfil.ADMINISTRADOR, "ver as contagens");
+
+        return new long[] {
+                estatisticaDAO.contarEstudantes(),
+                estatisticaDAO.contarEmpresas(),
+                estatisticaDAO.contarVagasPorSituacao(SituacaoVaga.ABERTA),
+                estatisticaDAO.contarVagasPorSituacao(SituacaoVaga.ENCERRADA),
+                estatisticaDAO.contarCandidaturas()
+        };
+    }
 }

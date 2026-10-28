@@ -1,6 +1,7 @@
 package dao.jdbc;
 
 import dao.VagaDAO;
+import exception.PersistenciaException;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -8,168 +9,119 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
-import model.Modalidade;
-import model.SituacaoVaga;
 import model.Vaga;
-import service.jdbc.ConexaoSupabase;
 
-public final class JdbcVagaDAO extends JdbcDaoSupport implements VagaDAO {
-    public JdbcVagaDAO(ConexaoSupabase conexoes) {
-        super(conexoes);
+public class JdbcVagaDAO implements VagaDAO {
+    private final ConexaoSupabase conexao;
+
+    public JdbcVagaDAO(ConexaoSupabase conexao) {
+        this.conexao = conexao;
     }
 
     @Override
-    public Vaga publicar(Vaga vaga) throws SQLException {
-        return consultar(new SqlOperation<Vaga>() {
-            @Override
-            public Vaga execute(Connection connection) throws SQLException {
-                String sql = """
-                        INSERT INTO vagas
-                            (empresa_id, area_id, titulo, descricao, localizacao, modalidade, carga_horaria_semanal)
-                        VALUES (?, ?, ?, ?, ?, ?, ?)
-                        """;
-                try (PreparedStatement statement = connection.prepareStatement(
-                        sql, Statement.RETURN_GENERATED_KEYS)) {
-                    statement.setLong(1, vaga.getEmpresa().getId());
-                    statement.setLong(2, vaga.getArea().getId());
-                    statement.setString(3, vaga.getTitulo().trim());
-                    statement.setString(4, vaga.getDescricao());
-                    statement.setString(5, vaga.getLocalizacao());
-                    statement.setString(6, vaga.getModalidade().name());
-                    statement.setInt(7, vaga.getCargaHorariaSemanal());
-                    long id = executarInsertGerandoId(statement);
-                    return new Vaga(id, vaga.getEmpresa(), vaga.getTitulo(), vaga.getDescricao(),
-                            vaga.getArea(), vaga.getLocalizacao(), vaga.getModalidade(),
-                            vaga.getCargaHorariaSemanal());
+    public Vaga publicar(Vaga vaga) {
+        String sql = "INSERT INTO vagas (empresa_id, area_id, titulo, descricao, localizacao, "
+                + "modalidade, carga_horaria_semanal) VALUES (?, ?, ?, ?, ?, ?, ?)";
+        try (Connection con = conexao.abrir();
+             PreparedStatement ps = con.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+            ps.setLong(1, vaga.getEmpresa().getId());
+            ps.setLong(2, vaga.getArea().getId());
+            ps.setString(3, vaga.getTitulo());
+            ps.setString(4, vaga.getDescricao());
+            ps.setString(5, vaga.getLocalizacao());
+            ps.setString(6, vaga.getModalidade().name());
+            ps.setInt(7, vaga.getCargaHorariaSemanal());
+            ps.executeUpdate();
+            try (ResultSet keys = ps.getGeneratedKeys()) {
+                keys.next();
+                vaga.setId(keys.getLong("id"));
+            }
+            return vaga;
+        } catch (SQLException e) {
+            throw new PersistenciaException("Erro ao publicar a vaga.", e);
+        }
+    }
+
+    @Override
+    public Vaga buscarPorId(Long id) {
+        try (Connection con = conexao.abrir();
+             PreparedStatement ps = con.prepareStatement(JdbcMapeadores.SELECT_VAGAS + "WHERE v.id = ?")) {
+            ps.setLong(1, id);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return JdbcMapeadores.vaga(rs);
+                }
+                return null;
+            }
+        } catch (SQLException e) {
+            throw new PersistenciaException("Erro ao buscar a vaga.", e);
+        }
+    }
+
+    @Override
+    public List<Vaga> listarAbertas() {
+        List<Vaga> vagas = new ArrayList<>();
+        String sql = JdbcMapeadores.SELECT_VAGAS + "WHERE v.situacao = 'ABERTA' ORDER BY v.id";
+        try (Connection con = conexao.abrir();
+             PreparedStatement ps = con.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                vagas.add(JdbcMapeadores.vaga(rs));
+            }
+        } catch (SQLException e) {
+            throw new PersistenciaException("Erro ao listar as vagas abertas.", e);
+        }
+        return vagas;
+    }
+
+    @Override
+    public List<Vaga> listarPorEmpresa(Long empresaId) {
+        List<Vaga> vagas = new ArrayList<>();
+        String sql = JdbcMapeadores.SELECT_VAGAS + "WHERE v.empresa_id = ? ORDER BY v.id";
+        try (Connection con = conexao.abrir();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setLong(1, empresaId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    vagas.add(JdbcMapeadores.vaga(rs));
                 }
             }
-        });
+        } catch (SQLException e) {
+            throw new PersistenciaException("Erro ao listar as vagas da empresa.", e);
+        }
+        return vagas;
     }
 
     @Override
-    public Optional<Vaga> buscarPorId(Long id) throws SQLException {
-        return consultar(new SqlOperation<Optional<Vaga>>() {
-            @Override
-            public Optional<Vaga> execute(Connection connection) throws SQLException {
-                try (PreparedStatement statement = connection.prepareStatement(
-                        JdbcMapeadores.SELECT_VAGAS + " WHERE v.id = ?")) {
-                    statement.setLong(1, id);
-                    try (ResultSet rs = statement.executeQuery()) {
-                        return rs.next() ? Optional.of(JdbcMapeadores.vaga(rs)) : Optional.empty();
-                    }
-                }
-            }
-        });
+    public boolean atualizar(Vaga vaga) {
+        String sql = "UPDATE vagas SET area_id = ?, titulo = ?, descricao = ?, localizacao = ?, "
+                + "modalidade = ?, carga_horaria_semanal = ? "
+                + "WHERE id = ? AND empresa_id = ? AND situacao = 'ABERTA'";
+        try (Connection con = conexao.abrir();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setLong(1, vaga.getArea().getId());
+            ps.setString(2, vaga.getTitulo());
+            ps.setString(3, vaga.getDescricao());
+            ps.setString(4, vaga.getLocalizacao());
+            ps.setString(5, vaga.getModalidade().name());
+            ps.setInt(6, vaga.getCargaHorariaSemanal());
+            ps.setLong(7, vaga.getId());
+            ps.setLong(8, vaga.getEmpresa().getId());
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) {
+            throw new PersistenciaException("Erro ao atualizar a vaga.", e);
+        }
     }
 
     @Override
-    public List<Vaga> listarTodas() throws SQLException {
-        return listar(null, null, null, null);
-    }
-
-    @Override
-    public List<Vaga> listarPorEmpresa(Long empresaId) throws SQLException {
-        return consultar(new SqlOperation<List<Vaga>>() {
-            @Override
-            public List<Vaga> execute(Connection connection) throws SQLException {
-                List<Vaga> vagas = new ArrayList<>();
-                try (PreparedStatement statement = connection.prepareStatement(
-                        JdbcMapeadores.SELECT_VAGAS + " WHERE v.empresa_id = ? ORDER BY v.id")) {
-                    statement.setLong(1, empresaId);
-                    try (ResultSet rs = statement.executeQuery()) {
-                        while (rs.next()) vagas.add(JdbcMapeadores.vaga(rs));
-                    }
-                }
-                return List.copyOf(vagas);
-            }
-        });
-    }
-
-    @Override
-    public List<Vaga> listarComFiltros(Long areaId, Modalidade modalidade, SituacaoVaga situacao,
-                                       String termo) throws SQLException {
-        return listar(areaId, modalidade, situacao, termo);
-    }
-
-    private List<Vaga> listar(Long areaId, Modalidade modalidade, SituacaoVaga situacao, String termo)
-            throws SQLException {
-        return consultar(new SqlOperation<List<Vaga>>() {
-            @Override
-            public List<Vaga> execute(Connection connection) throws SQLException {
-                StringBuilder sql = new StringBuilder(JdbcMapeadores.SELECT_VAGAS);
-                List<Object> parametros = new ArrayList<>();
-                List<String> filtros = new ArrayList<>();
-                if (areaId != null) {
-                    filtros.add("v.area_id = ?");
-                    parametros.add(areaId);
-                }
-                if (modalidade != null) {
-                    filtros.add("v.modalidade = ?");
-                    parametros.add(modalidade.name());
-                }
-                if (situacao != null) {
-                    filtros.add("v.situacao = ?");
-                    parametros.add(situacao.name());
-                }
-                if (termo != null && !termo.isBlank()) {
-                    filtros.add("(v.titulo ILIKE ? OR coalesce(v.descricao, '') ILIKE ?)");
-                    String busca = "%" + termo.trim() + "%";
-                    parametros.add(busca);
-                    parametros.add(busca);
-                }
-                if (!filtros.isEmpty()) sql.append(" WHERE ").append(String.join(" AND ", filtros));
-                sql.append(" ORDER BY v.id");
-
-                List<Vaga> vagas = new ArrayList<>();
-                try (PreparedStatement statement = connection.prepareStatement(sql.toString())) {
-                    for (int i = 0; i < parametros.size(); i++) statement.setObject(i + 1, parametros.get(i));
-                    try (ResultSet rs = statement.executeQuery()) {
-                        while (rs.next()) vagas.add(JdbcMapeadores.vaga(rs));
-                    }
-                }
-                return List.copyOf(vagas);
-            }
-        });
-    }
-
-    @Override
-    public boolean atualizar(Vaga vaga) throws SQLException {
-        return consultar(new SqlOperation<Boolean>() {
-            @Override
-            public Boolean execute(Connection connection) throws SQLException {
-                String sql = """
-                        UPDATE vagas
-                        SET area_id = ?, titulo = ?, descricao = ?, localizacao = ?,
-                            modalidade = ?, carga_horaria_semanal = ?
-                        WHERE id = ? AND empresa_id = ? AND situacao = 'ABERTA'
-                        """;
-                try (PreparedStatement statement = connection.prepareStatement(sql)) {
-                    statement.setLong(1, vaga.getArea().getId());
-                    statement.setString(2, vaga.getTitulo().trim());
-                    statement.setString(3, vaga.getDescricao());
-                    statement.setString(4, vaga.getLocalizacao());
-                    statement.setString(5, vaga.getModalidade().name());
-                    statement.setInt(6, vaga.getCargaHorariaSemanal());
-                    statement.setLong(7, vaga.getId());
-                    statement.setLong(8, vaga.getEmpresa().getId());
-                    return statement.executeUpdate() > 0;
-                }
-            }
-        });
-    }
-
-    @Override
-    public boolean encerrar(Long vagaId) throws SQLException {
-        return consultar(new SqlOperation<Boolean>() {
-            @Override
-            public Boolean execute(Connection connection) throws SQLException {
-                try (PreparedStatement statement = connection.prepareStatement(
-                        "UPDATE vagas SET situacao = 'ENCERRADA' WHERE id = ? AND situacao = 'ABERTA'")) {
-                    statement.setLong(1, vagaId);
-                    return statement.executeUpdate() > 0;
-                }
-            }
-        });
+    public boolean encerrar(Long vagaId) {
+        String sql = "UPDATE vagas SET situacao = 'ENCERRADA' WHERE id = ? AND situacao = 'ABERTA'";
+        try (Connection con = conexao.abrir();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setLong(1, vagaId);
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) {
+            throw new PersistenciaException("Erro ao encerrar a vaga.", e);
+        }
     }
 }

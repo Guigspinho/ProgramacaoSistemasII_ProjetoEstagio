@@ -1,24 +1,28 @@
 package dao;
-import model.Area;
-import java.sql.SQLException;
-import java.util.List;
-import java.util.Optional;
 
-/** Define as operações de persistência para áreas. */
+import java.util.List;
+import model.Area;
+
+/** Operações de persistência para áreas. */
 public interface AreaDAO {
 
-    /** Cadastra uma área e retorna o objeto com o ID gerado pelo banco. */
-    Area cadastrar(Area area) throws SQLException;
+    /** Grava a área e devolve o objeto com o ID gerado pelo banco. */
+    Area cadastrar(Area area);
 
-    /** Lista todas as áreas. */
-    List<Area> listarTodas() throws SQLException;
+    List<Area> listarTodas();
 
-    /** Busca uma área pelo ID. */
-    Optional<Area> buscarPorId(Long id) throws SQLException;
+    /** Devolve a área ou null se o ID não existir. */
+    Area buscarPorId(Long id);
 
-    /** Atualiza a área; retorna false quando nenhum registro foi alterado. */
-    boolean atualizar(Area area) throws SQLException;
+    /** Devolve a área ou null se o nome não existir (ignora maiúsculas/minúsculas). */
+    Area buscarPorNome(String nome);
 
-    /** Exclui a área; retorna false quando nenhum registro foi excluído. */
-    boolean excluir(Long id) throws SQLException;
+    /** Atualiza o nome; devolve false se nenhum registro foi alterado. */
+    boolean atualizar(Area area);
+
+    /** Exclui a área; devolve false se nenhum registro foi excluído. */
+    boolean excluir(Long id);
+
+    /** Indica se alguma vaga usa esta área. */
+    boolean estaEmUso(Long areaId);
 }
