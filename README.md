@@ -20,19 +20,9 @@ Preencher antes de enviar:
 
 ## Como executar
 
-### Modo local em memória
-
-Na raiz do projeto:
-
-```bash
-mvn clean compile
-mvn exec:java -Dexec.mainClass=app.Main
-```
-
-Sem variáveis de conexão Supabase, a aplicação inicia com dados fictícios em memória.
-As alterações desse modo desaparecem quando o programa termina.
-
-### Modo persistente com Supabase
+Configure o acesso ao banco Supabase e execute os comandos na raiz do projeto. A
+aplicação sempre usa JDBC, portanto o banco precisa estar configurado e acessível para
+iniciar.
 
 A conexão padrão usa o Session pooler configurado em
 [`ConexaoSupabase.java`](src/main/java/service/jdbc/ConexaoSupabase.java). Defina a
@@ -41,29 +31,23 @@ ZIP enviado:
 
 ```bash
 export SUPABASE_DB_PASSWORD='sua-senha-do-banco'
+export SUPABASE_JDBC_URL='jdbc:postgresql://HOST:PORTA/postgres?sslmode=require'
+export SUPABASE_DB_USER='USUARIO_DO_POOLER'
 mvn clean compile
 mvn exec:java -Dexec.mainClass=app.Main
 ```
 
 Execute os comandos no mesmo terminal. O usuário e a URL padrão podem ser substituídos
 pelas variáveis `SUPABASE_DB_USER` e `SUPABASE_JDBC_URL`, usando os valores exibidos
-no painel Supabase em **Connect → Session pooler**. Exemplo de configuração opcional:
-
-```bash
-export SUPABASE_JDBC_URL='jdbc:postgresql://HOST:PORTA/postgres?sslmode=require'
-export SUPABASE_DB_USER='USUARIO_DO_POOLER'
-```
-
-Se nenhuma variável Supabase estiver definida, a aplicação usa o modo em memória. Se
-alguma variável estiver definida, tenta conectar ao banco; uma conexão inválida não
-aciona fallback silencioso. Na primeira execução, é necessário que o usuário do banco
-tenha permissão para criar as tabelas do esquema `public`.
+no painel Supabase em **Connect → Session pooler**. Se a URL e o usuário padrão já
+estiverem corretos, basta configurar a senha. Na primeira execução, é necessário que o
+usuário do banco tenha permissão para criar as tabelas do esquema `public`.
 
 ## Dados de demonstração
 
 O script [estrutura-e-dados.sql](src/main/resources/db/estrutura-e-dados.sql) cria as
 tabelas, restrições e registros fictícios. A aplicação executa o script na inicialização
-do modo Supabase; também é possível executá-lo manualmente no SQL Editor do Supabase.
+da aplicação; também é possível executá-lo manualmente no SQL Editor do Supabase.
 Os comandos são preparados para poderem ser reexecutados sem duplicar os dados de
 demonstração existentes.
 
@@ -95,8 +79,9 @@ O caminho de uma operação é:
 
 As dependências dos menus são recebidas por construtor. Os serviços também oferecem
 construtor com interfaces DAO, permitindo trocar as implementações e testar as regras
-isoladamente. `Main` seleciona a implementação real JDBC ou a implementação provisória
-em memória, dependendo da configuração do ambiente.
+isoladamente. `Main` usa a implementação JDBC conectada ao Supabase.
+
+As vagas aceitam carga horária semanal de 1 a 30 horas.
 
 O diagrama de classes está em [diagrama-classes.puml](diagrama-classes.puml).
 

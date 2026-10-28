@@ -217,7 +217,7 @@ public final class ServicosJDBC implements UsuarioService, AreaService, VagaServ
         String tituloValido = textoObrigatorio(titulo, "Título");
         Area area = buscarArea(areaId);
         if (modalidade == null) throw new IllegalArgumentException("Modalidade obrigatória.");
-        if (carga <= 0) throw new IllegalArgumentException("Carga horária deve ser positiva.");
+        validarCargaHoraria(carga);
         Vaga vaga = new Vaga(null, empresa, tituloValido, descricao, area, localizacao, modalidade, carga);
         return executarDAO(() -> vagaDAO.publicar(vaga));
     }
@@ -230,7 +230,7 @@ public final class ServicosJDBC implements UsuarioService, AreaService, VagaServ
         String tituloValido = textoObrigatorio(titulo, "Título");
         Area area = buscarArea(areaId);
         if (modalidade == null) throw new IllegalArgumentException("Modalidade obrigatória.");
-        if (carga <= 0) throw new IllegalArgumentException("Carga horária deve ser positiva.");
+        validarCargaHoraria(carga);
 
         Vaga editada = new Vaga(atual.getId(), atual.getEmpresa(), tituloValido, descricao,
                 area, localizacao, modalidade, carga);
@@ -245,6 +245,12 @@ public final class ServicosJDBC implements UsuarioService, AreaService, VagaServ
         if (!vaga.estaAberta()) throw new RegraNegocioException("A vaga já está encerrada.");
         boolean encerrada = executarDAO(() -> vagaDAO.encerrar(vagaId));
         if (!encerrada) throw new RegraNegocioException("A vaga já está encerrada.");
+    }
+
+    private static void validarCargaHoraria(int carga) {
+        if (carga < Vaga.CARGA_HORARIA_MINIMA || carga > Vaga.CARGA_HORARIA_MAXIMA) {
+            throw new IllegalArgumentException("Carga horária deve estar entre 1 e 30 horas semanais.");
+        }
     }
 
     @Override
