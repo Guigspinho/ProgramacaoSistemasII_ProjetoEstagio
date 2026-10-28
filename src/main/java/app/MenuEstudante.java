@@ -16,11 +16,24 @@ public class MenuEstudante {
     }
 
     public void abrir(Usuario ator) {
-        new Menu("ESTUDANTE: " + ator.getNome(), "Voltar", entrada)
-                .adicionar("Consultar vagas abertas", telaVagas::consultarAbertas)
-                .adicionar("Candidatar-se a uma vaga", () -> candidatar(ator))
-                .adicionar("Minhas candidaturas", () -> minhasCandidaturas(ator))
-                .exibir();
+        Menu menu = new Menu("ESTUDANTE: " + ator.getNome(), "Voltar", entrada)
+                .adicionar("Consultar vagas abertas")
+                .adicionar("Candidatar-se a uma vaga")
+                .adicionar("Minhas candidaturas");
+        while (true) {
+            int opcao = menu.exibir();
+            if (opcao == 0) return;
+            try {
+                switch (opcao) {
+                    case 1: telaVagas.consultarAbertas(); break;
+                    case 2: candidatar(ator); break;
+                    case 3: minhasCandidaturas(ator); break;
+                    default: break;
+                }
+            } catch (RuntimeException e) {
+                Menu.tratarErro(e);
+            }
+        }
     }
 
     private void candidatar(Usuario ator) {

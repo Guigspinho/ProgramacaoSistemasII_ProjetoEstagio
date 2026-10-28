@@ -19,14 +19,30 @@ public class MenuEmpresa {
     }
 
     public void abrir(Usuario ator) {
-        new Menu("EMPRESA: " + ator.getNome(), "Voltar", entrada)
-                .adicionar("Publicar vaga", () -> publicar(ator))
-                .adicionar("Minhas vagas", () -> telaVagas.listar(vagaService.listarDaEmpresa(ator)))
-                .adicionar("Editar vaga", () -> editar(ator))
-                .adicionar("Encerrar vaga", () -> encerrar(ator))
-                .adicionar("Ver candidatos de uma vaga", () -> verCandidatos(ator))
-                .adicionar("Consultar vagas abertas (consulta pública)", telaVagas::consultarAbertas)
-                .exibir();
+        Menu menu = new Menu("EMPRESA: " + ator.getNome(), "Voltar", entrada)
+                .adicionar("Publicar vaga")
+                .adicionar("Minhas vagas")
+                .adicionar("Editar vaga")
+                .adicionar("Encerrar vaga")
+                .adicionar("Ver candidatos de uma vaga")
+                .adicionar("Consultar vagas abertas (consulta pública)");
+        while (true) {
+            int opcao = menu.exibir();
+            if (opcao == 0) return;
+            try {
+                switch (opcao) {
+                    case 1: publicar(ator); break;
+                    case 2: telaVagas.listar(vagaService.listarDaEmpresa(ator)); break;
+                    case 3: editar(ator); break;
+                    case 4: encerrar(ator); break;
+                    case 5: verCandidatos(ator); break;
+                    case 6: telaVagas.consultarAbertas(); break;
+                    default: break;
+                }
+            } catch (RuntimeException e) {
+                Menu.tratarErro(e);
+            }
+        }
     }
 
     private void publicar(Usuario ator) {

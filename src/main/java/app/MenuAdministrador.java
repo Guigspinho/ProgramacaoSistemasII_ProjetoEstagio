@@ -19,13 +19,28 @@ public class MenuAdministrador {
     }
 
     public void abrir(Usuario ator) {
-        new Menu("ADMINISTRADOR: " + ator.getNome(), "Voltar", entrada)
-                .adicionar("Cadastrar área", () -> cadastrarArea(ator))
-                .adicionar("Listar áreas", telaVagas::mostrarAreas)
-                .adicionar("Editar área", () -> editarArea(ator))
-                .adicionar("Excluir área", () -> excluirArea(ator))
-                .adicionar("Ver contagens do portal", () -> contagens(ator))
-                .exibir();
+        Menu menu = new Menu("ADMINISTRADOR: " + ator.getNome(), "Voltar", entrada)
+                .adicionar("Cadastrar área")
+                .adicionar("Listar áreas")
+                .adicionar("Editar área")
+                .adicionar("Excluir área")
+                .adicionar("Ver contagens do portal");
+        while (true) {
+            int opcao = menu.exibir();
+            if (opcao == 0) return;
+            try {
+                switch (opcao) {
+                    case 1: cadastrarArea(ator); break;
+                    case 2: telaVagas.mostrarAreas(); break;
+                    case 3: editarArea(ator); break;
+                    case 4: excluirArea(ator); break;
+                    case 5: contagens(ator); break;
+                    default: break;
+                }
+            } catch (RuntimeException e) {
+                Menu.tratarErro(e);
+            }
+        }
     }
 
     private void cadastrarArea(Usuario ator) {

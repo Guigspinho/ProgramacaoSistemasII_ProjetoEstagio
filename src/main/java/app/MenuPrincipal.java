@@ -29,12 +29,26 @@ public class MenuPrincipal {
     }
 
     public void abrir() {
-        new Menu("PORTAL DE ESTÁGIOS", "Sair", entrada)
-                .adicionar("Entrar como usuário de demonstração", this::entrar)
-                .adicionar("Cadastrar estudante", this::cadastrarEstudante)
-                .adicionar("Cadastrar empresa", this::cadastrarEmpresa)
-                .adicionar("Consultar vagas abertas", telaVagas::consultarAbertas)
-                .exibir();
+        Menu menu = new Menu("PORTAL DE ESTÁGIOS", "Sair", entrada)
+                .adicionar("Entrar como usuário de demonstração")
+                .adicionar("Cadastrar estudante")
+                .adicionar("Cadastrar empresa")
+                .adicionar("Consultar vagas abertas");
+        while (true) {
+            int opcao = menu.exibir();
+            if (opcao == 0) break;
+            try {
+                switch (opcao) {
+                    case 1: entrar(); break;
+                    case 2: cadastrarEstudante(); break;
+                    case 3: cadastrarEmpresa(); break;
+                    case 4: telaVagas.consultarAbertas(); break;
+                    default: break;
+                }
+            } catch (RuntimeException e) {
+                Menu.tratarErro(e);
+            }
+        }
         System.out.println("\nAté logo!");
     }
 
@@ -53,9 +67,9 @@ public class MenuPrincipal {
 
         Usuario ator = usuarios.get(n - 1);
         switch (ator.getPerfil()) {
-            case ESTUDANTE -> menuEstudante.abrir(ator);
-            case EMPRESA -> menuEmpresa.abrir(ator);
-            case ADMINISTRADOR -> menuAdministrador.abrir(ator);
+            case ESTUDANTE: menuEstudante.abrir(ator); break;
+            case EMPRESA: menuEmpresa.abrir(ator); break;
+            case ADMINISTRADOR: menuAdministrador.abrir(ator); break;
         }
     }
 
