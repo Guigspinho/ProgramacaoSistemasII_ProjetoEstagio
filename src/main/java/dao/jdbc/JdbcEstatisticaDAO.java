@@ -1,6 +1,7 @@
 package dao.jdbc;
 
 import dao.EstatisticaDAO;
+import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -13,11 +14,14 @@ public final class JdbcEstatisticaDAO extends JdbcDaoSupport implements Estatist
     }
 
     private long contar(String sql) throws SQLException {
-        return consultar(connection -> {
-            try (PreparedStatement statement = connection.prepareStatement(sql);
-                 ResultSet rs = statement.executeQuery()) {
-                rs.next();
-                return rs.getLong(1);
+        return consultar(new SqlOperation<Long>() {
+            @Override
+            public Long execute(Connection connection) throws SQLException {
+                try (PreparedStatement statement = connection.prepareStatement(sql);
+                     ResultSet rs = statement.executeQuery()) {
+                    rs.next();
+                    return rs.getLong(1);
+                }
             }
         });
     }
@@ -30,13 +34,16 @@ public final class JdbcEstatisticaDAO extends JdbcDaoSupport implements Estatist
 
     @Override
     public long contarVagasPorSituacao(SituacaoVaga situacao) throws SQLException {
-        return consultar(connection -> {
-            try (PreparedStatement statement = connection.prepareStatement(
-                    "SELECT count(*) FROM vagas WHERE situacao = ?")) {
-                statement.setString(1, situacao.name());
-                try (ResultSet rs = statement.executeQuery()) {
-                    rs.next();
-                    return rs.getLong(1);
+        return consultar(new SqlOperation<Long>() {
+            @Override
+            public Long execute(Connection connection) throws SQLException {
+                try (PreparedStatement statement = connection.prepareStatement(
+                        "SELECT count(*) FROM vagas WHERE situacao = ?")) {
+                    statement.setString(1, situacao.name());
+                    try (ResultSet rs = statement.executeQuery()) {
+                        rs.next();
+                        return rs.getLong(1);
+                    }
                 }
             }
         });

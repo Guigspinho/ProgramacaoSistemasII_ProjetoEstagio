@@ -1,6 +1,7 @@
 package dao.jdbc;
 
 import dao.UsuarioDAO;
+import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -35,12 +36,15 @@ public final class JdbcUsuarioDAO extends JdbcDaoSupport implements UsuarioDAO {
     }
 
     private Optional<Usuario> buscar(String condicao, Object parametro) throws SQLException {
-        return consultar(connection -> {
-            try (PreparedStatement statement = connection.prepareStatement(
-                    SELECT_USUARIOS + " WHERE " + condicao)) {
-                statement.setObject(1, parametro);
-                try (ResultSet rs = statement.executeQuery()) {
-                    return rs.next() ? Optional.of(JdbcMapeadores.usuario(rs)) : Optional.empty();
+        return consultar(new SqlOperation<Optional<Usuario>>() {
+            @Override
+            public Optional<Usuario> execute(Connection connection) throws SQLException {
+                try (PreparedStatement statement = connection.prepareStatement(
+                        SELECT_USUARIOS + " WHERE " + condicao)) {
+                    statement.setObject(1, parametro);
+                    try (ResultSet rs = statement.executeQuery()) {
+                        return rs.next() ? Optional.of(JdbcMapeadores.usuario(rs)) : Optional.empty();
+                    }
                 }
             }
         });
@@ -48,14 +52,17 @@ public final class JdbcUsuarioDAO extends JdbcDaoSupport implements UsuarioDAO {
 
     @Override
     public List<Usuario> listarTodos() throws SQLException {
-        return consultar(connection -> {
-            List<Usuario> usuarios = new ArrayList<>();
-            try (PreparedStatement statement = connection.prepareStatement(
-                    SELECT_USUARIOS + " ORDER BY u.id");
-                 ResultSet rs = statement.executeQuery()) {
-                while (rs.next()) usuarios.add(JdbcMapeadores.usuario(rs));
+        return consultar(new SqlOperation<List<Usuario>>() {
+            @Override
+            public List<Usuario> execute(Connection connection) throws SQLException {
+                List<Usuario> usuarios = new ArrayList<>();
+                try (PreparedStatement statement = connection.prepareStatement(
+                        SELECT_USUARIOS + " ORDER BY u.id");
+                     ResultSet rs = statement.executeQuery()) {
+                    while (rs.next()) usuarios.add(JdbcMapeadores.usuario(rs));
+                }
+                return List.copyOf(usuarios);
             }
-            return List.copyOf(usuarios);
         });
     }
 }

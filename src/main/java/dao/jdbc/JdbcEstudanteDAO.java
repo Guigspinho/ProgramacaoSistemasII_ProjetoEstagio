@@ -1,6 +1,7 @@
 package dao.jdbc;
 
 import dao.EstudanteDAO;
+import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -24,34 +25,40 @@ public final class JdbcEstudanteDAO extends JdbcDaoSupport implements EstudanteD
 
     @Override
     public Estudante cadastrar(Estudante estudante) throws SQLException {
-        return transacionar(connection -> {
-            long id;
-            String sqlUsuario = "INSERT INTO usuarios (nome, email, perfil) VALUES (?, ?, 'ESTUDANTE')";
-            try (PreparedStatement statement = connection.prepareStatement(
-                    sqlUsuario, Statement.RETURN_GENERATED_KEYS)) {
-                statement.setString(1, estudante.getNome().trim());
-                statement.setString(2, estudante.getEmail().trim().toLowerCase());
-                id = executarInsertGerandoId(statement);
+        return transacionar(new SqlOperation<Estudante>() {
+            @Override
+            public Estudante execute(Connection connection) throws SQLException {
+                long id;
+                String sqlUsuario = "INSERT INTO usuarios (nome, email, perfil) VALUES (?, ?, 'ESTUDANTE')";
+                try (PreparedStatement statement = connection.prepareStatement(
+                        sqlUsuario, Statement.RETURN_GENERATED_KEYS)) {
+                    statement.setString(1, estudante.getNome().trim());
+                    statement.setString(2, estudante.getEmail().trim().toLowerCase());
+                    id = executarInsertGerandoId(statement);
+                }
+                try (PreparedStatement statement = connection.prepareStatement(
+                        "INSERT INTO estudantes (usuario_id, curso) VALUES (?, ?)")) {
+                    statement.setLong(1, id);
+                    statement.setString(2, estudante.getCurso().trim());
+                    statement.executeUpdate();
+                }
+                return new Estudante(id, estudante.getNome().trim(),
+                        estudante.getEmail().trim().toLowerCase(), estudante.getCurso().trim());
             }
-            try (PreparedStatement statement = connection.prepareStatement(
-                    "INSERT INTO estudantes (usuario_id, curso) VALUES (?, ?)")) {
-                statement.setLong(1, id);
-                statement.setString(2, estudante.getCurso().trim());
-                statement.executeUpdate();
-            }
-            return new Estudante(id, estudante.getNome().trim(),
-                    estudante.getEmail().trim().toLowerCase(), estudante.getCurso().trim());
         });
     }
 
     @Override
     public Optional<Estudante> buscarPorId(Long id) throws SQLException {
-        return consultar(connection -> {
-            try (PreparedStatement statement = connection.prepareStatement(
-                    SELECT_ESTUDANTES + " WHERE u.id = ?")) {
-                statement.setLong(1, id);
-                try (ResultSet rs = statement.executeQuery()) {
-                    return rs.next() ? Optional.of(JdbcMapeadores.estudante(rs)) : Optional.empty();
+        return consultar(new SqlOperation<Optional<Estudante>>() {
+            @Override
+            public Optional<Estudante> execute(Connection connection) throws SQLException {
+                try (PreparedStatement statement = connection.prepareStatement(
+                        SELECT_ESTUDANTES + " WHERE u.id = ?")) {
+                    statement.setLong(1, id);
+                    try (ResultSet rs = statement.executeQuery()) {
+                        return rs.next() ? Optional.of(JdbcMapeadores.estudante(rs)) : Optional.empty();
+                    }
                 }
             }
         });
@@ -59,14 +66,17 @@ public final class JdbcEstudanteDAO extends JdbcDaoSupport implements EstudanteD
 
     @Override
     public List<Estudante> listarTodos() throws SQLException {
-        return consultar(connection -> {
-            List<Estudante> estudantes = new ArrayList<>();
-            try (PreparedStatement statement = connection.prepareStatement(
-                    SELECT_ESTUDANTES + " ORDER BY u.id");
-                 ResultSet rs = statement.executeQuery()) {
-                while (rs.next()) estudantes.add(JdbcMapeadores.estudante(rs));
+        return consultar(new SqlOperation<List<Estudante>>() {
+            @Override
+            public List<Estudante> execute(Connection connection) throws SQLException {
+                List<Estudante> estudantes = new ArrayList<>();
+                try (PreparedStatement statement = connection.prepareStatement(
+                        SELECT_ESTUDANTES + " ORDER BY u.id");
+                     ResultSet rs = statement.executeQuery()) {
+                    while (rs.next()) estudantes.add(JdbcMapeadores.estudante(rs));
+                }
+                return List.copyOf(estudantes);
             }
-            return List.copyOf(estudantes);
         });
     }
 }

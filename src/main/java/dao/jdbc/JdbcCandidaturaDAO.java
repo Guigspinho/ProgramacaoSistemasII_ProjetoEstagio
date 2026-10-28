@@ -1,6 +1,7 @@
 package dao.jdbc;
 
 import dao.CandidaturaDAO;
+import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -36,16 +37,19 @@ public final class JdbcCandidaturaDAO extends JdbcDaoSupport implements Candidat
 
     @Override
     public Candidatura cadastrar(Candidatura candidatura) throws SQLException {
-        return consultar(connection -> {
-            String sql = "INSERT INTO candidaturas (estudante_id, vaga_id, data_inscricao) VALUES (?, ?, ?)";
-            try (PreparedStatement statement = connection.prepareStatement(
-                    sql, Statement.RETURN_GENERATED_KEYS)) {
-                statement.setLong(1, candidatura.getEstudante().getId());
-                statement.setLong(2, candidatura.getVaga().getId());
-                statement.setDate(3, java.sql.Date.valueOf(candidatura.getDataInscricao()));
-                long id = executarInsertGerandoId(statement);
-                return new Candidatura(id, candidatura.getEstudante(), candidatura.getVaga(),
-                        candidatura.getDataInscricao());
+        return consultar(new SqlOperation<Candidatura>() {
+            @Override
+            public Candidatura execute(Connection connection) throws SQLException {
+                String sql = "INSERT INTO candidaturas (estudante_id, vaga_id, data_inscricao) VALUES (?, ?, ?)";
+                try (PreparedStatement statement = connection.prepareStatement(
+                        sql, Statement.RETURN_GENERATED_KEYS)) {
+                    statement.setLong(1, candidatura.getEstudante().getId());
+                    statement.setLong(2, candidatura.getVaga().getId());
+                    statement.setDate(3, java.sql.Date.valueOf(candidatura.getDataInscricao()));
+                    long id = executarInsertGerandoId(statement);
+                    return new Candidatura(id, candidatura.getEstudante(), candidatura.getVaga(),
+                            candidatura.getDataInscricao());
+                }
             }
         });
     }
@@ -61,28 +65,34 @@ public final class JdbcCandidaturaDAO extends JdbcDaoSupport implements Candidat
     }
 
     private List<Candidatura> listar(String condicao, Long id) throws SQLException {
-        return consultar(connection -> {
-            List<Candidatura> candidaturas = new ArrayList<>();
-            try (PreparedStatement statement = connection.prepareStatement(
-                    SELECT_CANDIDATURAS + " WHERE " + condicao + " ORDER BY c.id")) {
-                statement.setLong(1, id);
-                try (ResultSet rs = statement.executeQuery()) {
-                    while (rs.next()) candidaturas.add(JdbcMapeadores.candidatura(rs));
+        return consultar(new SqlOperation<List<Candidatura>>() {
+            @Override
+            public List<Candidatura> execute(Connection connection) throws SQLException {
+                List<Candidatura> candidaturas = new ArrayList<>();
+                try (PreparedStatement statement = connection.prepareStatement(
+                        SELECT_CANDIDATURAS + " WHERE " + condicao + " ORDER BY c.id")) {
+                    statement.setLong(1, id);
+                    try (ResultSet rs = statement.executeQuery()) {
+                        while (rs.next()) candidaturas.add(JdbcMapeadores.candidatura(rs));
+                    }
                 }
+                return List.copyOf(candidaturas);
             }
-            return List.copyOf(candidaturas);
         });
     }
 
     @Override
     public boolean existePorEstudanteEVaga(Long estudanteId, Long vagaId) throws SQLException {
-        return consultar(connection -> {
-            String sql = "SELECT 1 FROM candidaturas WHERE estudante_id = ? AND vaga_id = ?";
-            try (PreparedStatement statement = connection.prepareStatement(sql)) {
-                statement.setLong(1, estudanteId);
-                statement.setLong(2, vagaId);
-                try (ResultSet rs = statement.executeQuery()) {
-                    return rs.next();
+        return consultar(new SqlOperation<Boolean>() {
+            @Override
+            public Boolean execute(Connection connection) throws SQLException {
+                String sql = "SELECT 1 FROM candidaturas WHERE estudante_id = ? AND vaga_id = ?";
+                try (PreparedStatement statement = connection.prepareStatement(sql)) {
+                    statement.setLong(1, estudanteId);
+                    statement.setLong(2, vagaId);
+                    try (ResultSet rs = statement.executeQuery()) {
+                        return rs.next();
+                    }
                 }
             }
         });

@@ -7,7 +7,6 @@ import java.sql.SQLException;
 import service.jdbc.ConexaoSupabase;
 
 abstract class JdbcDaoSupport {
-    @FunctionalInterface
     protected interface SqlOperation<T> {
         T execute(Connection connection) throws SQLException;
     }
