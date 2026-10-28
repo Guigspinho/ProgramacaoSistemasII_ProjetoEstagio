@@ -40,10 +40,7 @@ public class VagaService {
 
     public Vaga editar(Usuario ator, Long vagaId, String titulo, String descricao, Long areaId,
                        String localizacao, Modalidade modalidade, int cargaHorariaSemanal) {
-        Vaga vaga = buscarVagaDaEmpresa(ator, vagaId);
-        if (!vaga.estaAberta()) {
-            throw new RegraNegocioException("Vaga encerrada não pode ser editada.");
-        }
+        Vaga vaga = buscarVagaEditavel(ator, vagaId);
         String tituloValido = Validacao.textoObrigatorio(titulo, "Título");
         validarModalidadeECarga(modalidade, cargaHorariaSemanal);
         Area area = buscarArea(areaId);
@@ -59,6 +56,10 @@ public class VagaService {
             throw new RegraNegocioException("A vaga não está mais disponível.");
         }
         return vaga;
+    }
+
+    public void validarPodeEditar(Usuario ator, Long vagaId) {
+        buscarVagaEditavel(ator, vagaId);
     }
 
     public void encerrar(Usuario ator, Long vagaId) {
@@ -101,6 +102,14 @@ public class VagaService {
         }
         if (!vaga.getEmpresa().getId().equals(ator.getId())) {
             throw new AcessoNegadoException("Esta vaga pertence a outra empresa.");
+        }
+        return vaga;
+    }
+
+    private Vaga buscarVagaEditavel(Usuario ator, Long vagaId) {
+        Vaga vaga = buscarVagaDaEmpresa(ator, vagaId);
+        if (!vaga.estaAberta()) {
+            throw new RegraNegocioException("Vaga encerrada não pode ser editada.");
         }
         return vaga;
     }

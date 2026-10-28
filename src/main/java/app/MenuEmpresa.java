@@ -58,8 +58,10 @@ public class MenuEmpresa {
     }
 
     private void editar(Usuario ator) {
-        telaVagas.listar(vagaService.listarDaEmpresa(ator));
+        telaVagas.listar(vagaService.listarDaEmpresa(ator).stream()
+                .filter(Vaga::estaAberta).toList());
         Long vagaId = entrada.lerLong("ID da vaga a editar");
+        vagaService.validarPodeEditar(ator, vagaId);
         System.out.println("Informe os novos dados da vaga:");
         String titulo = entrada.lerTexto("Título");
         String descricao = entrada.lerTextoOpcional("Descrição");
