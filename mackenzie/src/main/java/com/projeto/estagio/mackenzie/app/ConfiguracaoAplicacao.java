@@ -5,13 +5,6 @@ import com.projeto.estagio.mackenzie.dao.CandidaturaDAO;
 import com.projeto.estagio.mackenzie.dao.EstatisticaDAO;
 import com.projeto.estagio.mackenzie.dao.UsuarioDAO;
 import com.projeto.estagio.mackenzie.dao.VagaDAO;
-import com.projeto.estagio.mackenzie.dao.jdbc.ConexaoSupabase;
-import com.projeto.estagio.mackenzie.dao.jdbc.InicializadorBanco;
-import com.projeto.estagio.mackenzie.dao.jdbc.JdbcAreaDAO;
-import com.projeto.estagio.mackenzie.dao.jdbc.JdbcCandidaturaDAO;
-import com.projeto.estagio.mackenzie.dao.jdbc.JdbcEstatisticaDAO;
-import com.projeto.estagio.mackenzie.dao.jdbc.JdbcUsuarioDAO;
-import com.projeto.estagio.mackenzie.dao.jdbc.JdbcVagaDAO;
 import com.projeto.estagio.mackenzie.service.AreaService;
 import com.projeto.estagio.mackenzie.service.CandidaturaService;
 import com.projeto.estagio.mackenzie.service.RelatorioService;
@@ -22,11 +15,10 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 /**
- * Monta a aplicação com persistência JDBC.
+ * Monta os serviços e componentes da aplicação.
  *
  * É a mesma fiação que antes era feita à mão em {@code criarMenu}, agora registrada como beans
- * do Spring. As classes de domínio, DAOs e serviços continuam sem nenhuma anotação do
- * framework: a injeção acontece pelos construtores que elas já tinham.
+ * do Spring. Os DAOs são implementados com JPA e descobertos por component scan.
  */
 @Configuration
 public class ConfiguracaoAplicacao {
@@ -34,41 +26,6 @@ public class ConfiguracaoAplicacao {
     @Bean
     public Entrada entrada() {
         return new Entrada(new Scanner(System.in));
-    }
-
-    @Bean
-    public ConexaoSupabase conexaoSupabase() {
-        return new ConexaoSupabase();
-    }
-
-    @Bean
-    public InicializadorBanco inicializadorBanco(ConexaoSupabase conexao) {
-        return new InicializadorBanco(conexao);
-    }
-
-    @Bean
-    public UsuarioDAO usuarioDAO(ConexaoSupabase conexao) {
-        return new JdbcUsuarioDAO(conexao);
-    }
-
-    @Bean
-    public AreaDAO areaDAO(ConexaoSupabase conexao) {
-        return new JdbcAreaDAO(conexao);
-    }
-
-    @Bean
-    public VagaDAO vagaDAO(ConexaoSupabase conexao) {
-        return new JdbcVagaDAO(conexao);
-    }
-
-    @Bean
-    public CandidaturaDAO candidaturaDAO(ConexaoSupabase conexao) {
-        return new JdbcCandidaturaDAO(conexao);
-    }
-
-    @Bean
-    public EstatisticaDAO estatisticaDAO(ConexaoSupabase conexao) {
-        return new JdbcEstatisticaDAO(conexao);
     }
 
     @Bean
