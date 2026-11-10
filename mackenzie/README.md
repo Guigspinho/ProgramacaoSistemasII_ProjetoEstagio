@@ -2,7 +2,7 @@
 
 Aplicação Java para aproximar estudantes de oportunidades de estágio, construída sobre
 **Spring Boot**. Esta versão corresponde à **Entrega 1**: domínio, regras de negócio,
-persistência PostgreSQL por JDBC e seleção simulada de identidade, com interface de console.
+persistência PostgreSQL por JPA e seleção simulada de identidade, com interface de console.
 
 ## Integrantes
 
@@ -14,17 +14,15 @@ persistência PostgreSQL por JDBC e seleção simulada de identidade, com interf
 
 - Java 17 ou superior
 - Maven 3.8 ou superior
-- PostgreSQL acessível por JDBC (o projeto está configurado para o Supabase)
+- PostgreSQL acessível pelo Spring Data JPA (o projeto está configurado para o Supabase)
 
 ## Como executar
 
-Configure o acesso ao banco Supabase e execute os comandos na raiz do projeto. A
-aplicação sempre usa JDBC, portanto o banco precisa estar configurado e acessível para
-iniciar.
+Configure o acesso ao banco Supabase e execute os comandos na raiz do projeto. O banco
+precisa estar configurado e acessível para a aplicação iniciar.
 
 A conexão padrão usa o Session pooler configurado em
-[`application.properties`](src/main/resources/application.properties) (e em
-[`ConexaoSupabase.java`](src/main/java/com/projeto/estagio/mackenzie/dao/jdbc/ConexaoSupabase.java)).
+[`application.properties`](src/main/resources/application.properties).
 Defina a senha no ambiente; não a grave no código, em arquivos do repositório, no README
 ou no ZIP enviado:
 
@@ -32,10 +30,10 @@ ou no ZIP enviado:
 export SUPABASE_DB_PASSWORD='sua-senha-do-banco'
 export SUPABASE_JDBC_URL='jdbc:postgresql://HOST:PORTA/postgres?sslmode=require'
 export SUPABASE_DB_USER='USUARIO_DO_POOLER'
-./mvnw spring-boot:run
+mvn spring-boot:run
 ```
 
-No Windows, use `mvnw.cmd spring-boot:run` (e `set` no lugar de `export`).
+No Windows, use `mvn spring-boot:run` (e `set` no lugar de `export`).
 
 Execute os comandos no mesmo terminal. O usuário e a URL padrão podem ser substituídos
 pelas variáveis `SUPABASE_DB_USER` e `SUPABASE_JDBC_URL`, usando os valores exibidos
@@ -45,9 +43,40 @@ usuário do banco tenha permissão para criar as tabelas do esquema `public`.
 
 O menu de console abre assim que a aplicação sobe e, ao escolher **Sair**, a aplicação é
 encerrada. Para subir apenas a parte web, sem o menu, use
-`./mvnw spring-boot:run -Dspring-boot.run.arguments=--app.console.enabled=false`.
+`mvn spring-boot:run -Dspring-boot.run.arguments=--app.console.enabled=false`.
 
-Os testes (`./mvnw test`) que carregam o contexto do Spring só executam quando
+### API REST
+
+Com a aplicação iniciada sem o console, a API fica disponível sob `/api`. Operações que
+exigem perfil recebem `X-Usuario-Id` com o ID de uma conta cadastrada. Esse cabeçalho
+representa somente a identidade simulada desta entrega; não substitui autenticação.
+
+| Método e endpoint | Fluxo | Resposta de sucesso |
+|---|---|---|
+| `POST /api/usuarios/estudantes` | Cadastrar estudante | `201 Created` |
+| `POST /api/usuarios/empresas` | Cadastrar empresa | `201 Created` |
+| `GET /api/areas` | Listar áreas | `200 OK` |
+| `POST /api/areas` | Administrador cadastra área | `201 Created` |
+| `PUT /api/areas/{id}` | Administrador edita área | `200 OK` |
+| `DELETE /api/areas/{id}` | Administrador exclui área | `204 No Content` |
+| `GET /api/vagas?areaId={id}&modalidade={modalidade}` | Consultar vagas abertas (filtros opcionais) | `200 OK` |
+| `POST /api/vagas` | Empresa publica vaga | `201 Created` |
+| `GET /api/vagas/minhas` | Empresa lista suas vagas | `200 OK` |
+| `PUT /api/vagas/{id}` | Empresa edita vaga própria | `200 OK` |
+| `PATCH /api/vagas/{id}/encerramento` | Empresa encerra vaga própria | `204 No Content` |
+| `POST /api/vagas/{id}/candidaturas` | Estudante se candidata | `201 Created` |
+| `GET /api/candidaturas/minhas` | Estudante lista suas candidaturas | `200 OK` |
+| `GET /api/vagas/{id}/candidaturas` | Empresa consulta candidatos de vaga própria | `200 OK` |
+| `GET /api/relatorios/contagens` | Administrador consulta contagens | `200 OK` |
+
+O corpo dos cadastros/edições segue os campos do domínio: área usa `{"nome":"..."}`;
+estudante usa `nome`, `email` e `curso`; empresa usa `nome`, `email` e `nomeEmpresa`;
+vaga usa `titulo`, `descricao`, `areaId`, `localizacao`, `modalidade` e
+`cargaHorariaSemanal`. Erros retornam JSON com status, mensagem e caminho: `400` para
+requisição/validação inválida, `403` para perfil ou propriedade não autorizados, `404`
+para recurso inexistente e `409` para conflito de regra ou integridade.
+
+Os testes (`mvn test`) que carregam o contexto do Spring só executam quando
 `SUPABASE_DB_PASSWORD` está definida.
 
 ## Dados de demonstração
@@ -75,7 +104,7 @@ regras. Não há senha nem autenticação nesta entrega.
 
 O caminho de uma operação é:
 
-**Menu (apresentação) → Service (regras de negócio) → interface DAO → implementação JDBC → PostgreSQL**
+**Menu (apresentação) → Service (regras de negócio) → interface DAO → implementação JPA → PostgreSQL**
 
 Todos os pacotes abaixo ficam em `com.projeto.estagio.mackenzie` (por exemplo,
 `com.projeto.estagio.mackenzie.service`), para serem encontrados pelo Spring Boot.
@@ -85,13 +114,13 @@ Todos os pacotes abaixo ficam em `com.projeto.estagio.mackenzie` (por exemplo,
 - `model`: entidades, associações e enums do domínio.
 - `service`: valida perfil, propriedade dos dados e regras de negócio; coordena a operação.
 - `dao`: contratos de persistência, independentes do banco.
-- `dao.jdbc`: implementações JDBC dos contratos, mapeamento de resultados e inicialização do banco.
+- `dao.jpa`: implementações JPA dos contratos de persistência.
 - `exception`: erros de acesso, regras de negócio e persistência.
 
 As dependências dos menus são recebidas por construtor. Os serviços também oferecem
 construtor com interfaces DAO, permitindo trocar as implementações e testar as regras
-isoladamente. `ConfiguracaoAplicacao` registra como beans do Spring a implementação JDBC
-conectada ao Supabase; as classes de domínio, DAOs e serviços não dependem do framework.
+isoladamente. `ConfiguracaoAplicacao` conecta os serviços às implementações JPA; as regras
+de negócio permanecem nos serviços.
 
 As vagas aceitam carga horária semanal de 1 a 30 horas.
 
@@ -113,8 +142,7 @@ conceitual da estrutura usada na implementação. O diagrama em PlantUML está e
 1. O menu estudante lê o ID da vaga.
 2. `CandidaturaService` valida se o usuário selecionado é estudante e se a vaga existe
    e está aberta; verifica também se já existe candidatura para o par estudante–vaga.
-3. `CandidaturaDAO` define o contrato de gravação; `JdbcCandidaturaDAO` executa o `INSERT`
-   parametrizado.
+3. `CandidaturaDAO` define o contrato de gravação; `JpaCandidaturaDAO` persiste a entidade.
 4. O PostgreSQL aplica chaves estrangeiras e a restrição `UNIQUE (estudante_id, vaga_id)`.
 5. O menu apresenta a confirmação ou uma mensagem amigável para uma falha esperada.
 
@@ -125,10 +153,9 @@ chaves estrangeiras entre usuários e perfis, vagas e empresas/áreas, e candida
 estudantes e vagas. A tabela de candidaturas também restringe a repetição do par
 estudante–vaga.
 
-Os DAOs usam `PreparedStatement`, fecham conexões, comandos e resultados com
-`try-with-resources` e usam transações quando uma operação grava mais de uma tabela.
-Falhas SQL são convertidas em exceções de persistência ou de regra de negócio tratadas
-pelo menu. Entradas numéricas e opções inválidas são solicitadas novamente.
+Os DAOs usam JPA e transações do Spring para persistir as entidades e consultar o PostgreSQL.
+Falhas de persistência ou de regra de negócio são tratadas pelo menu. Entradas numéricas e
+opções inválidas são solicitadas novamente.
 
 ### Esquema das tabelas
 
@@ -205,7 +232,7 @@ O grupo utilizou IA como apoio em três etapas do projeto:
    para organizar rapidamente a estrutura do projeto, separando diretórios e classes
    por responsabilidade. A organização resultante inclui pacotes para apresentação
    (`app`), domínio (`model`), regras de negócio (`service`), contratos de persistência
-   (`dao`), implementação JDBC (`dao.jdbc`) e exceções (`exception`).
+   (`dao`), implementação JPA (`dao.jpa`) e exceções (`exception`).
 
 2. **Revisão e verificação em relação ao enunciado:** foi solicitada a análise do
    projeto e de sua documentação frente aos requisitos da entrega. A revisão verificou
@@ -218,7 +245,7 @@ O grupo utilizou IA como apoio em três etapas do projeto:
    perfil e propriedade da vaga, candidatura somente a vagas abertas, prevenção de
    candidaturas duplicadas e limite de carga horária semanal. No banco, foram
    identificadas as chaves estrangeiras, restrições de unicidade e validações de
-   valores; nos DAOs JDBC, o uso de consultas parametrizadas. A IA ajudou ainda a
+   valores. A IA ajudou ainda a
    documentar a passagem do modelo de domínio para o modelo de projeto e a organizar
    o roteiro de verificação manual. Essas verificações foram feitas por inspeção dos
    arquivos e do código; não há testes automatizados no repositório, e os cenários do
@@ -231,5 +258,6 @@ O grupo utilizou IA como apoio em três etapas do projeto:
    serviços; `Optional`, `switch` com seta, blocos de texto e `instanceof` com padrão foram
    substituídos por `null`, `if` e `switch` tradicionais, texto concatenado e cast; a
    validação duplicada entre modelo e serviço ficou só no serviço; os DAOs de estudante e
-   empresa foram unificados em `UsuarioDAO`. O comportamento foi comparado com a versão
-   anterior executando o mesmo roteiro de entradas num PostgreSQL local.
+   empresa foram unificados em `UsuarioDAO`. Na etapa seguinte, a persistência JDBC foi
+   substituída por JPA, mantendo os contratos DAO e as regras nos serviços. O comportamento
+   da versão anterior foi comparado executando o mesmo roteiro de entradas num PostgreSQL local.

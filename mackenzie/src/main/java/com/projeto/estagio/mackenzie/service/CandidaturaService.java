@@ -3,6 +3,7 @@ package com.projeto.estagio.mackenzie.service;
 import com.projeto.estagio.mackenzie.dao.CandidaturaDAO;
 import com.projeto.estagio.mackenzie.dao.VagaDAO;
 import com.projeto.estagio.mackenzie.exception.AcessoNegadoException;
+import com.projeto.estagio.mackenzie.exception.RecursoNaoEncontradoException;
 import com.projeto.estagio.mackenzie.exception.RegraNegocioException;
 import java.time.LocalDate;
 import java.util.List;
@@ -54,7 +55,7 @@ public class CandidaturaService {
     private Vaga buscarVaga(Long vagaId) {
         Vaga vaga = vagaDAO.buscarPorId(vagaId);
         if (vaga == null) {
-            throw new RegraNegocioException("Vaga " + vagaId + " não encontrada.");
+            throw new RecursoNaoEncontradoException("Vaga " + vagaId + " não encontrada.");
         }
         return vaga;
     }

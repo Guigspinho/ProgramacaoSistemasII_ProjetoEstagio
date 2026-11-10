@@ -1,13 +1,36 @@
 package com.projeto.estagio.mackenzie.model;
 
 import java.time.LocalDate;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.Table;
 
 /** Associação entre estudante e vaga. O par (estudante, vaga) não pode se repetir. */
+@Entity
+@Table(name = "candidaturas")
 public class Candidatura {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-    private final Estudante estudante;
-    private final Vaga vaga;
-    private final LocalDate dataInscricao;
+
+    @ManyToOne(fetch = FetchType.EAGER, optional = false)
+    @JoinColumn(name = "estudante_id", referencedColumnName = "id", nullable = false)
+    private Estudante estudante;
+
+    @ManyToOne(fetch = FetchType.EAGER, optional = false)
+    @JoinColumn(name = "vaga_id", nullable = false)
+    private Vaga vaga;
+
+    @Column(name = "data_inscricao", nullable = false)
+    private LocalDate dataInscricao;
+
+    protected Candidatura() { }
 
     public Candidatura(Long id, Estudante estudante, Vaga vaga, LocalDate dataInscricao) {
         this.id = id;
