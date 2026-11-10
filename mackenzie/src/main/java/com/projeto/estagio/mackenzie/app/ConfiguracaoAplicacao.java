@@ -13,6 +13,8 @@ import com.projeto.estagio.mackenzie.service.VagaService;
 import java.util.Scanner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.web.servlet.config.annotation.CorsRegistry;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 /**
  * Monta os serviços e componentes da aplicação.
@@ -21,7 +23,15 @@ import org.springframework.context.annotation.Configuration;
  * do Spring. Os DAOs são implementados com JPA e descobertos por component scan.
  */
 @Configuration
-public class ConfiguracaoAplicacao {
+public class ConfiguracaoAplicacao implements WebMvcConfigurer {
+
+    @Override
+    public void addCorsMappings(CorsRegistry registry) {
+        registry.addMapping("/api/**")
+                .allowedOrigins("https://www.httprequest.net")
+                .allowedMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
+                .allowedHeaders("Content-Type", "X-Usuario-Id");
+    }
 
     @Bean
     public Entrada entrada() {
