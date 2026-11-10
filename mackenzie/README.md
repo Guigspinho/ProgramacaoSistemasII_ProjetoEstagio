@@ -45,6 +45,37 @@ O menu de console abre assim que a aplicação sobe e, ao escolher **Sair**, a a
 encerrada. Para subir apenas a parte web, sem o menu, use
 `mvn spring-boot:run -Dspring-boot.run.arguments=--app.console.enabled=false`.
 
+### API REST
+
+Com a aplicação iniciada sem o console, a API fica disponível sob `/api`. Operações que
+exigem perfil recebem `X-Usuario-Id` com o ID de uma conta cadastrada. Esse cabeçalho
+representa somente a identidade simulada desta entrega; não substitui autenticação.
+
+| Método e endpoint | Fluxo | Resposta de sucesso |
+|---|---|---|
+| `POST /api/usuarios/estudantes` | Cadastrar estudante | `201 Created` |
+| `POST /api/usuarios/empresas` | Cadastrar empresa | `201 Created` |
+| `GET /api/areas` | Listar áreas | `200 OK` |
+| `POST /api/areas` | Administrador cadastra área | `201 Created` |
+| `PUT /api/areas/{id}` | Administrador edita área | `200 OK` |
+| `DELETE /api/areas/{id}` | Administrador exclui área | `204 No Content` |
+| `GET /api/vagas?areaId={id}&modalidade={modalidade}` | Consultar vagas abertas (filtros opcionais) | `200 OK` |
+| `POST /api/vagas` | Empresa publica vaga | `201 Created` |
+| `GET /api/vagas/minhas` | Empresa lista suas vagas | `200 OK` |
+| `PUT /api/vagas/{id}` | Empresa edita vaga própria | `200 OK` |
+| `PATCH /api/vagas/{id}/encerramento` | Empresa encerra vaga própria | `204 No Content` |
+| `POST /api/vagas/{id}/candidaturas` | Estudante se candidata | `201 Created` |
+| `GET /api/candidaturas/minhas` | Estudante lista suas candidaturas | `200 OK` |
+| `GET /api/vagas/{id}/candidaturas` | Empresa consulta candidatos de vaga própria | `200 OK` |
+| `GET /api/relatorios/contagens` | Administrador consulta contagens | `200 OK` |
+
+O corpo dos cadastros/edições segue os campos do domínio: área usa `{"nome":"..."}`;
+estudante usa `nome`, `email` e `curso`; empresa usa `nome`, `email` e `nomeEmpresa`;
+vaga usa `titulo`, `descricao`, `areaId`, `localizacao`, `modalidade` e
+`cargaHorariaSemanal`. Erros retornam JSON com status, mensagem e caminho: `400` para
+requisição/validação inválida, `403` para perfil ou propriedade não autorizados, `404`
+para recurso inexistente e `409` para conflito de regra ou integridade.
+
 Os testes (`mvn test`) que carregam o contexto do Spring só executam quando
 `SUPABASE_DB_PASSWORD` está definida.
 

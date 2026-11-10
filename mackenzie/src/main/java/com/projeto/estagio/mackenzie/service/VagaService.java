@@ -3,6 +3,7 @@ package com.projeto.estagio.mackenzie.service;
 import com.projeto.estagio.mackenzie.dao.AreaDAO;
 import com.projeto.estagio.mackenzie.dao.VagaDAO;
 import com.projeto.estagio.mackenzie.exception.AcessoNegadoException;
+import com.projeto.estagio.mackenzie.exception.RecursoNaoEncontradoException;
 import com.projeto.estagio.mackenzie.exception.RegraNegocioException;
 import java.util.List;
 import java.util.function.Predicate;
@@ -98,7 +99,7 @@ public class VagaService {
         Validacao.exigirPerfil(ator, Perfil.EMPRESA, "gerenciar vagas");
         Vaga vaga = vagaDAO.buscarPorId(vagaId);
         if (vaga == null) {
-            throw new RegraNegocioException("Vaga " + vagaId + " não encontrada.");
+            throw new RecursoNaoEncontradoException("Vaga " + vagaId + " não encontrada.");
         }
         if (!vaga.getEmpresa().getId().equals(ator.getId())) {
             throw new AcessoNegadoException("Esta vaga pertence a outra empresa.");
@@ -117,7 +118,7 @@ public class VagaService {
     private Area buscarArea(Long areaId) {
         Area area = areaDAO.buscarPorId(areaId);
         if (area == null) {
-            throw new RegraNegocioException("Área " + areaId + " não encontrada.");
+            throw new RecursoNaoEncontradoException("Área " + areaId + " não encontrada.");
         }
         return area;
     }

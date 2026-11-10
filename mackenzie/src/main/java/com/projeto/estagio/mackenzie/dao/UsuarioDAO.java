@@ -17,6 +17,9 @@ public interface UsuarioDAO {
     /** Devolve o usuário ou null se o e-mail não existir. */
     Usuario buscarPorEmail(String email);
 
+    /** Devolve o usuário ou null se o ID não existir. */
+    Usuario buscarPorId(Long id);
+
     /** Todos os usuários, já como Estudante, Empresa ou Administrador. */
     List<Usuario> listarTodos();
 }

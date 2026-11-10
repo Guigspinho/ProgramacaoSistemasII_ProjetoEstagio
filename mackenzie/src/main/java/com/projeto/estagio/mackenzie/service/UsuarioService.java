@@ -1,6 +1,7 @@
 package com.projeto.estagio.mackenzie.service;
 
 import com.projeto.estagio.mackenzie.dao.UsuarioDAO;
+import com.projeto.estagio.mackenzie.exception.RecursoNaoEncontradoException;
 import com.projeto.estagio.mackenzie.exception.RegraNegocioException;
 import java.util.List;
 import com.projeto.estagio.mackenzie.model.Empresa;
@@ -35,6 +36,14 @@ public class UsuarioService {
     /** Usuários cadastrados, usados na seleção da identidade simulada. */
     public List<Usuario> listarUsuarios() {
         return usuarioDAO.listarTodos();
+    }
+
+    public Usuario buscarPorId(Long id) {
+        Usuario usuario = usuarioDAO.buscarPorId(id);
+        if (usuario == null) {
+            throw new RecursoNaoEncontradoException("Usuário " + id + " não encontrado.");
+        }
+        return usuario;
     }
 
     private void exigirEmailLivre(String email) {

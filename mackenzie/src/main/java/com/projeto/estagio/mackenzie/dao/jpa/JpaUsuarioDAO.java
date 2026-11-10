@@ -43,6 +43,13 @@ public class JpaUsuarioDAO implements UsuarioDAO {
 
     @Override
     @Transactional(readOnly = true)
+    public Usuario buscarPorId(Long id) {
+        Usuario usuario = entityManager.find(Usuario.class, id);
+        return usuario == null ? null : converterParaDominio(usuario);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public List<Usuario> listarTodos() {
         return entityManager.createQuery("SELECT u FROM Usuario u ORDER BY u.id", Usuario.class)
                 .getResultList().stream()

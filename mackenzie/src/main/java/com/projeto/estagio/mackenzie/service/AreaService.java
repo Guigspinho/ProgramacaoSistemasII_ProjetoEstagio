@@ -1,6 +1,7 @@
 package com.projeto.estagio.mackenzie.service;
 
 import com.projeto.estagio.mackenzie.dao.AreaDAO;
+import com.projeto.estagio.mackenzie.exception.RecursoNaoEncontradoException;
 import com.projeto.estagio.mackenzie.exception.RegraNegocioException;
 import java.util.List;
 import com.projeto.estagio.mackenzie.model.Area;
@@ -55,7 +56,7 @@ public class AreaService {
     private Area buscarArea(Long areaId) {
         Area area = areaDAO.buscarPorId(areaId);
         if (area == null) {
-            throw new RegraNegocioException("Área " + areaId + " não encontrada.");
+            throw new RecursoNaoEncontradoException("Área " + areaId + " não encontrada.");
         }
         return area;
     }

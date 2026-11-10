@@ -62,7 +62,6 @@ public class Vaga {
     }
 
     public boolean estaAberta() { return situacao == SituacaoVaga.ABERTA; }
-
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
     public Empresa getEmpresa() { return empresa; }
