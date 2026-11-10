@@ -4,16 +4,16 @@ import com.projeto.estagio.mackenzie.dao.VagaDAO;
 import com.projeto.estagio.mackenzie.model.SituacaoVaga;
 import com.projeto.estagio.mackenzie.model.Vaga;
 import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceContext;
 import java.util.List;
 import java.util.Objects;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
 @Repository
 @Transactional
 public class JpaVagaDAO implements VagaDAO {
-    @PersistenceContext
+    @Autowired
     private EntityManager entityManager;
 
     @Override

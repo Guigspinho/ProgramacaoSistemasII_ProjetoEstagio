@@ -3,15 +3,15 @@ package com.projeto.estagio.mackenzie.dao.jpa;
 import com.projeto.estagio.mackenzie.dao.CandidaturaDAO;
 import com.projeto.estagio.mackenzie.model.Candidatura;
 import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceContext;
 import java.util.List;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
 @Repository
 @Transactional
 public class JpaCandidaturaDAO implements CandidaturaDAO {
-    @PersistenceContext
+    @Autowired
     private EntityManager entityManager;
 
     @Override

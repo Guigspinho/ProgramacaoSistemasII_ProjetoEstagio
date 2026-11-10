@@ -30,10 +30,10 @@ ou no ZIP enviado:
 export SUPABASE_DB_PASSWORD='sua-senha-do-banco'
 export SUPABASE_JDBC_URL='jdbc:postgresql://HOST:PORTA/postgres?sslmode=require'
 export SUPABASE_DB_USER='USUARIO_DO_POOLER'
-./mvnw spring-boot:run
+mvn spring-boot:run
 ```
 
-No Windows, use `mvnw.cmd spring-boot:run` (e `set` no lugar de `export`).
+No Windows, use `mvn spring-boot:run` (e `set` no lugar de `export`).
 
 Execute os comandos no mesmo terminal. O usuário e a URL padrão podem ser substituídos
 pelas variáveis `SUPABASE_DB_USER` e `SUPABASE_JDBC_URL`, usando os valores exibidos
@@ -43,9 +43,9 @@ usuário do banco tenha permissão para criar as tabelas do esquema `public`.
 
 O menu de console abre assim que a aplicação sobe e, ao escolher **Sair**, a aplicação é
 encerrada. Para subir apenas a parte web, sem o menu, use
-`./mvnw spring-boot:run -Dspring-boot.run.arguments=--app.console.enabled=false`.
+`mvn spring-boot:run -Dspring-boot.run.arguments=--app.console.enabled=false`.
 
-Os testes (`./mvnw test`) que carregam o contexto do Spring só executam quando
+Os testes (`mvn test`) que carregam o contexto do Spring só executam quando
 `SUPABASE_DB_PASSWORD` está definida.
 
 ## Dados de demonstração

@@ -7,15 +7,15 @@ import com.projeto.estagio.mackenzie.model.Estudante;
 import com.projeto.estagio.mackenzie.model.Perfil;
 import com.projeto.estagio.mackenzie.model.Usuario;
 import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceContext;
 import java.util.List;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
 @Repository
 @Transactional
 public class JpaUsuarioDAO implements UsuarioDAO {
-    @PersistenceContext
+    @Autowired
     private EntityManager entityManager;
 
     @Override
