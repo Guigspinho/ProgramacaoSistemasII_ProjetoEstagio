@@ -19,8 +19,10 @@ public final class ApiDtos {
         return corpo;
     }
 
-    public record EstudanteRequest(String nome, String email, String curso) { }
-    public record EmpresaRequest(String nome, String email, String nomeEmpresa) { }
+    public record EstudanteRequest(String nome, String email, String curso, String senha) { }
+    public record EmpresaRequest(String nome, String email, String nomeEmpresa, String senha) { }
+    public record LoginRequest(String email, String senha) { }
+    public record CsrfResponse(String token) { }
     public record AreaRequest(String nome) { }
     public record VagaRequest(String titulo, String descricao, Long areaId, String localizacao,
                               com.projeto.estagio.mackenzie.model.Modalidade modalidade,

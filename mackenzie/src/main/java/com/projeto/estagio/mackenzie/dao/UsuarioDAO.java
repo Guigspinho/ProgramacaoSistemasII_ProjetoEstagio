@@ -20,6 +20,8 @@ public interface UsuarioDAO {
     /** Devolve o usuário ou null se o ID não existir. */
     Usuario buscarPorId(Long id);
 
+    void atualizarSenhaHash(Long id, String senhaHash);
+
     /** Todos os usuários, já como Estudante, Empresa ou Administrador. */
     List<Usuario> listarTodos();
 }

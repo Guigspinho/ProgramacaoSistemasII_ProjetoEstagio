@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#183c36">
+    <title>Portal de Estágios</title>
+    <link rel="stylesheet" href="/styles.css">
+    <script src="/app.js" defer></script>
+</head>
+<body>
+    <header class="topbar">
+        <a class="brand" href="#view-oportunidades" aria-label="Portal de Estágios, início">
+            <span class="brand-mark" aria-hidden="true">P</span>
+            <span class="brand-name">portal <strong>estágio</strong></span>
+        </a>
+
+        <nav class="main-nav" aria-label="Navegação principal">
+            <button class="nav-link is-active" data-view="oportunidades" type="button">Oportunidades</button>
+            <button class="nav-link guest-only" data-view="cadastro" type="button">Criar conta</button>
+            <button class="nav-link guest-only" data-view="login" type="button">Entrar</button>
+            <button class="nav-link authenticated-only" data-view="gestao" type="button" hidden>Meu painel</button>
+        </nav>
+
+        <div class="session-controls authenticated-only" hidden>
+            <span id="sessionIdentity"></span>
+            <button id="logoutButton" class="session-logout" type="button" aria-label="Sair da conta" title="Sair da conta">⤴</button>
+        </div>
+    </header>
+
+    <main>
+        <div class="page-ribbon">
+            <span>PORTAL DE ESTÁGIOS</span>
+            <span class="ribbon-dot" aria-hidden="true"></span>
+            <span>VAGAS, CANDIDATURAS E GESTÃO</span>
+        </div>
+
+        <div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
+
+        <section class="view is-visible" id="view-oportunidades" aria-labelledby="jobsTitle">
+            <div class="view-heading">
+                <div>
+                    <p class="eyebrow">ENCONTRE UMA OPORTUNIDADE</p>
+                    <h1 id="jobsTitle">Vagas abertas<span class="title-period">.</span></h1>
+                </div>
+                <button class="button button-dark" id="refreshJobs" type="button">
+                    <span aria-hidden="true">↻</span> Atualizar vagas
+                </button>
+            </div>
+
+            <div class="filter-bar">
+                <label class="filter-field">
+                    <span>Área</span>
+                    <select id="areaFilter"><option value="">Todas as áreas</option></select>
+                </label>
+                <label class="filter-field">
+                    <span>Modalidade</span>
+                    <select id="modalityFilter">
+                        <option value="">Todas</option>
+                        <option value="PRESENCIAL">Presencial</option>
+                        <option value="HIBRIDA">Híbrida</option>
+                        <option value="REMOTA">Remota</option>
+                    </select>
+                </label>
+                <label class="filter-field search-field">
+                    <span>Buscar</span>
+                    <input id="searchFilter" type="search" placeholder="Título ou empresa">
+                </label>
+                <button class="button button-outline" id="clearFilters" type="button">Limpar</button>
+            </div>
+
+            <div class="list-heading">
+                <span id="jobsCount" aria-live="polite">Carregando oportunidades...</span>
+                <span class="list-heading-note">PUBLICADAS POR EMPRESAS</span>
+            </div>
+            <div id="jobList" class="job-list" aria-live="polite"></div>
+            <div id="jobsEmpty" class="empty-state" hidden>
+                <span class="empty-mark" aria-hidden="true">—</span>
+                <h2>Nenhuma vaga encontrada</h2>
+                <p>Ajuste os filtros e tente novamente.</p>
+            </div>
+        </section>
+
+        <section class="view" id="view-cadastro" aria-labelledby="registerTitle" hidden>
+            <div class="view-heading">
+                <div>
+                    <p class="eyebrow">NOVO CADASTRO</p>
+                    <h1 id="registerTitle">Criar conta<span class="title-period">.</span></h1>
+                </div>
+            </div>
+
+            <div class="registration-layout">
+                <div class="registration-switch" role="tablist" aria-label="Tipo de cadastro">
+                    <button class="switch-option is-active" type="button" role="tab" aria-selected="true" data-register="estudante">Estudante</button>
+                    <button class="switch-option" type="button" role="tab" aria-selected="false" data-register="empresa">Empresa</button>
+                </div>
+
+                <form id="studentForm" class="form-panel">
+                    <div class="form-intro">
+                        <span class="form-index">01</span>
+                        <div><h2>Dados do estudante</h2><p>Preencha os campos para criar seu cadastro.</p></div>
+                    </div>
+                    <label>Nome completo<input name="nome" autocomplete="name" required maxlength="120"></label>
+                    <label>E-mail<input name="email" type="email" autocomplete="email" required maxlength="160"></label>
+                    <label>Curso<input name="curso" required maxlength="120"></label>
+                    <label>Senha<input name="senha" type="password" autocomplete="new-password" required minlength="8" maxlength="72"></label>
+                    <button class="button button-accent" type="submit">Cadastrar estudante <span aria-hidden="true">→</span></button>
+                </form>
+
+                <form id="companyForm" class="form-panel" hidden>
+                    <div class="form-intro">
+                        <span class="form-index">02</span>
+                        <div><h2>Dados da empresa</h2><p>Cadastre o responsável e a organização.</p></div>
+                    </div>
+                    <label>Nome do responsável<input name="nome" autocomplete="name" required maxlength="120"></label>
+                    <label>E-mail<input name="email" type="email" autocomplete="email" required maxlength="160"></label>
+                    <label>Nome da empresa<input name="nomeEmpresa" autocomplete="organization" required maxlength="160"></label>
+                    <label>Senha<input name="senha" type="password" autocomplete="new-password" required minlength="8" maxlength="72"></label>
+                    <button class="button button-accent" type="submit">Cadastrar empresa <span aria-hidden="true">→</span></button>
+                </form>
+                <aside class="registration-aside">
+                    <span class="aside-mark" aria-hidden="true">+</span>
+                    <p class="eyebrow">PORTAL DE ESTÁGIOS</p>
+                    <p>Seu cadastro começa aqui.</p>
+                </aside>
+            </div>
+            <div id="registrationResult" class="result-line" aria-live="polite"></div>
+        </section>
+
+        <section class="view" id="view-login" aria-labelledby="loginTitle" hidden>
+            <div class="view-heading">
+                <div>
+                    <p class="eyebrow">BEM-VINDO DE VOLTA</p>
+                    <h1 id="loginTitle">Entrar<span class="title-period">.</span></h1>
+                </div>
+            </div>
+            <form id="loginForm" class="login-panel">
+                <label>E-mail<input name="email" type="email" autocomplete="username" required></label>
+                <label>Senha<input name="senha" type="password" autocomplete="current-password" required></label>
+                <button class="button button-accent" type="submit">Entrar no portal <span aria-hidden="true">→</span></button>
+            </form>
+            <div id="loginResult" class="result-line" aria-live="polite"></div>
+        </section>
+
+        <section class="view" id="view-gestao" aria-labelledby="manageTitle" hidden>
+            <div class="view-heading">
+                <div>
+                    <p class="eyebrow" id="panelEyebrow">ÁREA DA CONTA</p>
+                    <h1 id="manageTitle">Meu painel<span class="title-period">.</span></h1>
+                </div>
+                <div class="identity-reminder" id="panelDescription"></div>
+            </div>
+
+            <div class="management-grid">
+                <section class="management-section publish-section" data-profile="EMPRESA" aria-labelledby="publishTitle">
+                    <div class="section-heading"><span class="section-number">01</span><h2 id="publishTitle">Publicar uma vaga</h2></div>
+                    <form id="jobForm" class="stack-form">
+                        <label>Título<input name="titulo" required maxlength="160"></label>
+                        <label>Área<select name="areaId" id="jobArea" required><option value="">Selecione uma área</option></select></label>
+                        <div class="form-row">
+                            <label>Modalidade<select name="modalidade" required><option value="">Selecione</option><option value="PRESENCIAL">Presencial</option><option value="HIBRIDA">Híbrida</option><option value="REMOTA">Remota</option></select></label>
+                            <label>Horas por semana<input name="cargaHorariaSemanal" type="number" min="1" max="30" required></label>
+                        </div>
+                        <label>Localização<input name="localizacao" maxlength="160"></label>
+                        <label>Descrição<textarea name="descricao" rows="4" maxlength="2000"></textarea></label>
+                        <button class="button button-accent" type="submit">Publicar vaga <span aria-hidden="true">→</span></button>
+                    </form>
+                </section>
+
+                <section class="management-section student-section" data-profile="ESTUDANTE" aria-labelledby="studentActivityTitle">
+                    <div class="section-heading"><span class="section-number">01</span><h2 id="studentActivityTitle">Minhas candidaturas</h2></div>
+                    <div class="action-row">
+                        <button class="button button-outline" id="loadApplications" type="button">Atualizar candidaturas</button>
+                    </div>
+                    <div id="studentResults" class="account-results"><p>Suas candidaturas aparecerão aqui.</p></div>
+                </section>
+
+                <section class="management-section company-section" data-profile="EMPRESA" aria-labelledby="companyActivityTitle">
+                    <div class="section-heading"><span class="section-number">02</span><h2 id="companyActivityTitle">Minhas vagas</h2></div>
+                    <div class="action-row">
+                        <button class="button button-outline" id="loadCompanyJobs" type="button">Atualizar minhas vagas</button>
+                    </div>
+                    <div id="companyResults" class="account-results"><p>Suas vagas aparecerão aqui.</p></div>
+                </section>
+
+                <section class="management-section admin-section" data-profile="ADMINISTRADOR" aria-labelledby="adminTitle">
+                    <div class="section-heading"><span class="section-number">03</span><h2 id="adminTitle">Administração</h2></div>
+                    <div class="action-row">
+                        <button class="button button-outline" id="loadReport" type="button">Ver contagens</button>
+                        <button class="button button-outline" id="loadAreas" type="button">Atualizar áreas</button>
+                    </div>
+                    <div id="reportResults" class="report-results"></div>
+                    <form id="areaForm" class="inline-form">
+                        <label>Nova área<input name="nome" required maxlength="100" placeholder="Ex.: Comunicação"></label>
+                        <button class="button button-dark" type="submit">Adicionar área</button>
+                    </form>
+                    <div class="area-edit-row">
+                        <label>Área existente<select id="editAreaSelect"><option value="">Selecione</option></select></label>
+                        <label>Novo nome<input id="editAreaName" maxlength="100"></label>
+                        <button class="button button-outline" id="renameArea" type="button">Renomear</button>
+                        <button class="button button-danger" id="deleteArea" type="button" aria-label="Excluir área selecionada">Excluir</button>
+                    </div>
+                </section>
+            </div>
+        </section>
+    </main>
+
+    <footer class="site-footer">
+        <span>PORTAL DE ESTÁGIOS</span>
+        <span>Interface web · API REST</span>
+    </footer>
+</body>
+</html>

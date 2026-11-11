@@ -49,6 +49,14 @@ public class JpaUsuarioDAO implements UsuarioDAO {
     }
 
     @Override
+    public void atualizarSenhaHash(Long id, String senhaHash) {
+        Usuario usuario = entityManager.find(Usuario.class, id);
+        if (usuario != null) {
+            usuario.setSenhaHash(senhaHash);
+        }
+    }
+
+    @Override
     @Transactional(readOnly = true)
     public List<Usuario> listarTodos() {
         return entityManager.createQuery("SELECT u FROM Usuario u ORDER BY u.id", Usuario.class)
@@ -59,7 +67,8 @@ public class JpaUsuarioDAO implements UsuarioDAO {
 
     private static Usuario converterParaDominio(Usuario usuario) {
         if (usuario.getPerfil() == Perfil.ADMINISTRADOR) {
-            return new Administrador(usuario.getId(), usuario.getNome(), usuario.getEmail());
+            return new Administrador(usuario.getId(), usuario.getNome(), usuario.getEmail(),
+                    usuario.getSenhaHash());
         }
         return usuario;
     }

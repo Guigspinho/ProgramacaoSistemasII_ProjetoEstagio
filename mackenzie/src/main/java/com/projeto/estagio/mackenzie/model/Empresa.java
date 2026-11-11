@@ -15,11 +15,15 @@ public class Empresa extends Usuario {
     private String nomeEmpresa;
 
     protected Empresa() {
-        super(null, null, null, Perfil.EMPRESA);
+        super(null, null, null, Perfil.EMPRESA, null);
     }
 
     public Empresa(Long id, String nome, String email, String nomeEmpresa) {
-        super(id, nome, email, Perfil.EMPRESA);
+        this(id, nome, email, nomeEmpresa, null);
+    }
+
+    public Empresa(Long id, String nome, String email, String nomeEmpresa, String senhaHash) {
+        super(id, nome, email, Perfil.EMPRESA, senhaHash);
         this.nomeEmpresa = nomeEmpresa;
     }
 

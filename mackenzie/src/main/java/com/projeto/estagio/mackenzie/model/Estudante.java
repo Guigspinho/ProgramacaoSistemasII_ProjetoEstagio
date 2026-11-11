@@ -15,11 +15,15 @@ public class Estudante extends Usuario {
     private String curso;
 
     protected Estudante() {
-        super(null, null, null, Perfil.ESTUDANTE);
+        super(null, null, null, Perfil.ESTUDANTE, null);
     }
 
     public Estudante(Long id, String nome, String email, String curso) {
-        super(id, nome, email, Perfil.ESTUDANTE);
+        this(id, nome, email, curso, null);
+    }
+
+    public Estudante(Long id, String nome, String email, String curso, String senhaHash) {
+        super(id, nome, email, Perfil.ESTUDANTE, senhaHash);
         this.curso = curso;
     }
 

@@ -5,6 +5,7 @@ import com.projeto.estagio.mackenzie.api.ApiDtos.VagaRequest;
 import com.projeto.estagio.mackenzie.api.ApiDtos.VagaResponse;
 
 import com.projeto.estagio.mackenzie.model.Modalidade;
+import com.projeto.estagio.mackenzie.model.Usuario;
 import com.projeto.estagio.mackenzie.model.Vaga;
 import com.projeto.estagio.mackenzie.service.CandidaturaService;
 import com.projeto.estagio.mackenzie.service.UsuarioService;
@@ -12,13 +13,14 @@ import com.projeto.estagio.mackenzie.service.VagaService;
 import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -45,16 +47,16 @@ public class VagaController {
     }
 
     @GetMapping("/minhas")
-    public List<VagaResponse> listarDaEmpresa(@RequestHeader("X-Usuario-Id") Long usuarioId) {
-        return vagaService.listarDaEmpresa(usuarioService.buscarPorId(usuarioId))
+        public List<VagaResponse> listarDaEmpresa(@AuthenticationPrincipal UserDetails principal) {
+                return vagaService.listarDaEmpresa(usuarioService.buscarPorEmail(principal.getUsername()))
                 .stream().map(VagaResponse::from).toList();
     }
 
     @PostMapping
-    public ResponseEntity<VagaResponse> publicar(@RequestHeader("X-Usuario-Id") Long usuarioId,
+        public ResponseEntity<VagaResponse> publicar(@AuthenticationPrincipal UserDetails principal,
                                                   @RequestBody VagaRequest request) {
         request = ApiDtos.exigirCorpo(request);
-        Vaga vaga = vagaService.publicar(usuarioService.buscarPorId(usuarioId),
+                Vaga vaga = vagaService.publicar(usuarioService.buscarPorEmail(principal.getUsername()),
                 request.titulo(), request.descricao(), request.areaId(), request.localizacao(),
                 request.modalidade(), request.cargaHorariaSemanal());
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -62,34 +64,34 @@ public class VagaController {
     }
 
     @PutMapping("/{id}")
-    public VagaResponse editar(@RequestHeader("X-Usuario-Id") Long usuarioId,
+        public VagaResponse editar(@AuthenticationPrincipal UserDetails principal,
                                @PathVariable Long id, @RequestBody VagaRequest request) {
         request = ApiDtos.exigirCorpo(request);
-        return VagaResponse.from(vagaService.editar(usuarioService.buscarPorId(usuarioId), id,
+                return VagaResponse.from(vagaService.editar(usuarioService.buscarPorEmail(principal.getUsername()), id,
                 request.titulo(), request.descricao(), request.areaId(), request.localizacao(),
                 request.modalidade(), request.cargaHorariaSemanal()));
     }
 
     @PatchMapping("/{id}/encerramento")
-    public ResponseEntity<Void> encerrar(@RequestHeader("X-Usuario-Id") Long usuarioId,
+        public ResponseEntity<Void> encerrar(@AuthenticationPrincipal UserDetails principal,
                                          @PathVariable Long id) {
-        vagaService.encerrar(usuarioService.buscarPorId(usuarioId), id);
+                vagaService.encerrar(usuarioService.buscarPorEmail(principal.getUsername()), id);
         return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/{id}/candidaturas")
     public ResponseEntity<CandidaturaResponse> candidatar(
-            @RequestHeader("X-Usuario-Id") Long usuarioId, @PathVariable Long id) {
+                        @AuthenticationPrincipal UserDetails principal, @PathVariable Long id) {
         CandidaturaResponse response = CandidaturaResponse.from(
-                candidaturaService.candidatar(usuarioService.buscarPorId(usuarioId), id));
+                                candidaturaService.candidatar(usuarioService.buscarPorEmail(principal.getUsername()), id));
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(response);
     }
 
     @GetMapping("/{id}/candidaturas")
     public List<CandidaturaResponse> listarCandidatos(
-            @RequestHeader("X-Usuario-Id") Long usuarioId, @PathVariable Long id) {
-        return candidaturaService.listarCandidatos(usuarioService.buscarPorId(usuarioId), id)
+                        @AuthenticationPrincipal UserDetails principal, @PathVariable Long id) {
+                return candidaturaService.listarCandidatos(usuarioService.buscarPorEmail(principal.getUsername()), id)
                 .stream().map(CandidaturaResponse::from).toList();
     }
 }

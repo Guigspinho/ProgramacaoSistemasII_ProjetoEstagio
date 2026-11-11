@@ -27,7 +27,7 @@ public class UsuarioController {
     public ResponseEntity<UsuarioResponse> cadastrarEstudante(@RequestBody EstudanteRequest request) {
         request = ApiDtos.exigirCorpo(request);
         Estudante estudante = usuarioService.cadastrarEstudante(
-                request.nome(), request.email(), request.curso());
+            request.nome(), request.email(), request.curso(), request.senha());
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(UsuarioResponse.from(estudante));
     }
@@ -36,7 +36,7 @@ public class UsuarioController {
     public ResponseEntity<UsuarioResponse> cadastrarEmpresa(@RequestBody EmpresaRequest request) {
         request = ApiDtos.exigirCorpo(request);
         Empresa empresa = usuarioService.cadastrarEmpresa(
-                request.nome(), request.email(), request.nomeEmpresa());
+            request.nome(), request.email(), request.nomeEmpresa(), request.senha());
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(UsuarioResponse.from(empresa));
     }

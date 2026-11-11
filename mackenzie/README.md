@@ -1,8 +1,8 @@
 # Portal de Estágios
 
 Aplicação Java para aproximar estudantes de oportunidades de estágio, construída sobre
-**Spring Boot**. Esta versão corresponde à **Entrega 1**: domínio, regras de negócio,
-persistência PostgreSQL por JPA e seleção simulada de identidade, com interface de console.
+**Spring Boot**. A aplicação oferece API REST e interface web com persistência PostgreSQL
+por JPA, autenticação por sessão e autorização por perfil e propriedade dos registros.
 
 ## Integrantes
 
@@ -30,6 +30,7 @@ ou no ZIP enviado:
 export SUPABASE_DB_PASSWORD='sua-senha-do-banco'
 export SUPABASE_JDBC_URL='jdbc:postgresql://HOST:PORTA/postgres?sslmode=require'
 export SUPABASE_DB_USER='USUARIO_DO_POOLER'
+export APP_BOOTSTRAP_PASSWORD='senha-temporaria-para-contas-legadas'
 mvn spring-boot:run
 ```
 
@@ -41,20 +42,37 @@ no painel Supabase em **Connect → Session pooler**. Se a URL e o usuário padr
 estiverem corretos, basta configurar a senha. Na primeira execução, é necessário que o
 usuário do banco tenha permissão para criar as tabelas do esquema `public`.
 
+`APP_BOOTSTRAP_PASSWORD` define uma senha temporária para contas antigas que ainda não
+possuem hash (incluindo contas fictícias). Use-a somente em ambiente de demonstração e
+escolha uma senha diferente da senha do banco. Novos cadastros já gravam o hash BCrypt e
+não são alterados por esse bootstrap.
+
 O menu de console abre assim que a aplicação sobe e, ao escolher **Sair**, a aplicação é
 encerrada. Para subir apenas a parte web, sem o menu, use
 `mvn spring-boot:run -Dspring-boot.run.arguments=--app.console.enabled=false`.
 
+### Interface web
+
+Com o PostgreSQL configurado e a aplicação iniciada sem o console, abra
+[`http://localhost:8080/`](http://localhost:8080/) no navegador. A interface consulta a
+API na mesma origem. Visitantes podem consultar vagas e criar conta. Após entrar, o portal
+mostra apenas as funções do perfil: estudantes consultam vagas e candidaturas; empresas
+publicam vagas e gerenciam as próprias; administradores gerenciam áreas e relatórios.
+
 ### API REST
 
-Com a aplicação iniciada sem o console, a API fica disponível sob `/api`. Operações que
-exigem perfil recebem `X-Usuario-Id` com o ID de uma conta cadastrada. Esse cabeçalho
-representa somente a identidade simulada desta entrega; não substitui autenticação.
+Com a aplicação iniciada sem o console, a API fica disponível sob `/api`. O login cria uma
+sessão HTTP; os endpoints privados obtêm a identidade dessa sessão, sem aceitar ID de usuário
+do cliente. O cadastro público cria somente estudantes ou empresas.
 
 | Método e endpoint | Fluxo | Resposta de sucesso |
 |---|---|---|
-| `POST /api/usuarios/estudantes` | Cadastrar estudante | `201 Created` |
-| `POST /api/usuarios/empresas` | Cadastrar empresa | `201 Created` |
+| `GET /api/auth/csrf` | Obter token CSRF e cookie `XSRF-TOKEN` | `200 OK` |
+| `POST /api/auth/login` | Entrar com e-mail e senha | `200 OK` |
+| `GET /api/auth/me` | Consultar conta autenticada | `200 OK` |
+| `POST /api/auth/logout` | Encerrar a sessão | `204 No Content` |
+| `POST /api/usuarios/estudantes` | Cadastrar estudante com senha | `201 Created` |
+| `POST /api/usuarios/empresas` | Cadastrar empresa com senha | `201 Created` |
 | `GET /api/areas` | Listar áreas | `200 OK` |
 | `POST /api/areas` | Administrador cadastra área | `201 Created` |
 | `PUT /api/areas/{id}` | Administrador edita área | `200 OK` |
@@ -69,12 +87,18 @@ representa somente a identidade simulada desta entrega; não substitui autentica
 | `GET /api/vagas/{id}/candidaturas` | Empresa consulta candidatos de vaga própria | `200 OK` |
 | `GET /api/relatorios/contagens` | Administrador consulta contagens | `200 OK` |
 
-O corpo dos cadastros/edições segue os campos do domínio: área usa `{"nome":"..."}`;
-estudante usa `nome`, `email` e `curso`; empresa usa `nome`, `email` e `nomeEmpresa`;
+O login recebe `{"email":"estudante@exemplo.com","senha":"senha-segura"}`. O corpo
+dos cadastros/edições segue os campos do domínio: estudante usa `nome`, `email`, `curso` e
+`senha`; empresa usa `nome`, `email`, `nomeEmpresa` e `senha`; área usa `{"nome":"..."}`;
 vaga usa `titulo`, `descricao`, `areaId`, `localizacao`, `modalidade` e
 `cargaHorariaSemanal`. Erros retornam JSON com status, mensagem e caminho: `400` para
 requisição/validação inválida, `403` para perfil ou propriedade não autorizados, `404`
 para recurso inexistente e `409` para conflito de regra ou integridade.
+
+O cliente obtém um token em `GET /api/auth/csrf`, mantém o cookie `XSRF-TOKEN` e envia o
+valor no cabeçalho `X-XSRF-TOKEN` em cada `POST`, `PUT`, `PATCH` ou `DELETE`, inclusive login,
+cadastro e logout. O cookie `JSESSIONID` mantém o usuário autenticado. Senhas são armazenadas
+com BCrypt; respostas de usuário nunca incluem o hash.
 
 Os testes (`mvn test`) que carregam o contexto do Spring só executam quando
 `SUPABASE_DB_PASSWORD` está definida.
@@ -87,7 +111,7 @@ da aplicação; também é possível executá-lo manualmente no SQL Editor do Su
 Os comandos são preparados para poderem ser reexecutados sem duplicar os dados de
 demonstração existentes.
 
-Contas fictícias disponíveis para selecionar no menu:
+Contas fictícias iniciais:
 
 | Perfil | E-mail |
 |---|---|
@@ -97,20 +121,21 @@ Contas fictícias disponíveis para selecionar no menu:
 | Estudante | `joao@aluno.edu` |
 | Estudante | `ana@aluno.edu` |
 
-A seleção de uma conta é apenas uma **identidade simulada** para demonstrar perfis e
-regras. Não há senha nem autenticação nesta entrega.
+Contas fictícias sem hash recebem a senha temporária configurada em
+`APP_BOOTSTRAP_PASSWORD`. O cadastro público não permite criar administradores.
 
 ## Organização e arquitetura
 
 O caminho de uma operação é:
 
-**Menu (apresentação) → Service (regras de negócio) → interface DAO → implementação JPA → PostgreSQL**
+**Interface/API → Spring Security (sessão e perfil) → Service (regras de negócio) → interface DAO → implementação JPA → PostgreSQL**
 
 Todos os pacotes abaixo ficam em `com.projeto.estagio.mackenzie` (por exemplo,
 `com.projeto.estagio.mackenzie.service`), para serem encontrados pelo Spring Boot.
 
 - `app`: menus, entrada e apresentação dos resultados; não contém SQL. Contém também
-  `ConfiguracaoAplicacao` (beans do Spring) e `ConsoleRunner` (abre o menu ao iniciar).
+   `ConfiguracaoAplicacao` (beans do Spring) e `ConsoleRunner` (abre o menu ao iniciar).
+- `security`: configuração de sessão, BCrypt, CSRF e carregamento de contas para autenticação.
 - `model`: entidades, associações e enums do domínio.
 - `service`: valida perfil, propriedade dos dados e regras de negócio; coordena a operação.
 - `dao`: contratos de persistência, independentes do banco.
@@ -248,8 +273,8 @@ O grupo utilizou IA como apoio em três etapas do projeto:
    valores. A IA ajudou ainda a
    documentar a passagem do modelo de domínio para o modelo de projeto e a organizar
    o roteiro de verificação manual. Essas verificações foram feitas por inspeção dos
-   arquivos e do código; não há testes automatizados no repositório, e os cenários do
-   roteiro devem ser executados pelo grupo para validação funcional.
+   arquivos e do código. O repositório inclui um teste unitário do hash BCrypt; os cenários
+   integrados do roteiro ainda devem ser executados pelo grupo com o PostgreSQL configurado.
 
 3. **Simplificação após a conclusão:** o grupo pediu uma simplificação do código, por considerá-lo mais sofisticado
    do que o conteúdo estudado. A IA apontou os trechos mais complexos e o código foi

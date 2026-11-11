@@ -5,6 +5,8 @@ CREATE TABLE IF NOT EXISTS usuarios (
     perfil TEXT NOT NULL CHECK (perfil IN ('ADMINISTRADOR', 'EMPRESA', 'ESTUDANTE'))
 );
 
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS senha_hash TEXT;
+
 CREATE TABLE IF NOT EXISTS estudantes (
     usuario_id BIGINT PRIMARY KEY REFERENCES usuarios(id) ON DELETE CASCADE,
     curso TEXT NOT NULL CHECK (btrim(curso) <> '')
