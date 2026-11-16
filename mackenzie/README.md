@@ -90,7 +90,7 @@ do cliente. O cadastro público cria somente estudantes ou empresas.
 O login recebe `{"email":"estudante@exemplo.com","senha":"senha-segura"}`. O corpo
 dos cadastros/edições segue os campos do domínio: estudante usa `nome`, `email`, `curso` e
 `senha`; empresa usa `nome`, `email`, `nomeEmpresa` e `senha`; área usa `{"nome":"..."}`;
-vaga usa `titulo`, `descricao`, `areaId`, `localizacao`, `modalidade` e
+vaga exige `titulo`, `descricao`, `areaId`, `localizacao`, `modalidade` e
 `cargaHorariaSemanal`. Erros retornam JSON com status, mensagem e caminho: `400` para
 requisição/validação inválida, `403` para perfil ou propriedade não autorizados, `404`
 para recurso inexistente e `409` para conflito de regra ou integridade.
@@ -147,7 +147,8 @@ construtor com interfaces DAO, permitindo trocar as implementações e testar as
 isoladamente. `ConfiguracaoAplicacao` conecta os serviços às implementações JPA; as regras
 de negócio permanecem nos serviços.
 
-As vagas aceitam carga horária semanal de 1 a 30 horas.
+As vagas exigem título, descrição, área, localização e modalidade, e aceitam carga horária
+semanal de 1 a 30 horas.
 
 ### Modelo de domínio
 
@@ -232,6 +233,12 @@ Eles verificam que:
 - uma candidatura para uma vaga encerrada é recusada;
 - uma empresa não consegue consultar candidatos de vaga pertencente a outra empresa.
 
+As validações de publicação de vaga (campos obrigatórios, área e carga horária) ficam em
+[VagaServiceTest.java](src/test/java/com/projeto/estagio/mackenzie/service/VagaServiceTest.java).
+O teste de senha BCrypt fica em
+[UsuarioServiceTest.java](src/test/java/com/projeto/estagio/mackenzie/service/UsuarioServiceTest.java).
+Esse teste também verifica que um e-mail existente é rejeitado ao cadastrar outro perfil,
+mesmo com diferenças de maiúsculas/minúsculas ou espaços.
 Os testes usam JUnit e Mockito para simular os DAOs; não precisam conectar ao Supabase.
 Na raiz do repositório, execute:
 
@@ -242,32 +249,56 @@ mvn -f mackenzie/pom.xml test
 Uma execução bem-sucedida termina com código zero. Se uma regra deixar de ser aplicada,
 o teste correspondente falha e o Maven mostra a asserção/erro.
 
-## Roteiro de verificação manual
+## Registro de verificação
 
-Execute cada cenário no modo persistente com dados de demonstração. Os IDs são gerados
-automaticamente e podem não ser sequenciais; use os IDs apresentados na execução.
+Registrem a entrada usada, o resultado esperado e o resultado observado para cada cenário.
+As linhas automatizadas abaixo foram executadas localmente; as demais ficam pendentes até
+serem realizadas no banco persistente. Não marquem um cenário manual como aprovado sem
+registrar o status/corpo HTTP ou a mensagem efetivamente observada.
 
-1. **Iniciar e consultar:** iniciar a aplicação, selecionar “Consultar vagas abertas” e
-   verificar as vagas fictícias. Repetir filtrando por uma área e por modalidade.
-2. **Cadastrar estudante e empresa:** cadastrar novos registros com e-mails diferentes.
-   Tentar cadastrar novamente um e-mail já existente e verificar a mensagem de duplicidade,
-   sem encerramento inesperado.
-3. **Estudante:** entrar como estudante, candidatar-se a uma vaga aberta e consultar
-   “Minhas candidaturas”. Tentar candidatar-se novamente à mesma vaga e confirmar a recusa.
-4. **Empresa:** entrar como empresa, publicar uma vaga, editá-la e conferir em “Minhas vagas”.
-   Verificar que a empresa não consegue gerenciar vaga pertencente à outra empresa.
-5. **Candidatos:** após candidatura, entrar como empresa proprietária e listar os candidatos
-   da vaga. Tentar listar candidatos de vaga de outra empresa e verificar a recusa.
-6. **Encerramento:** encerrar uma vaga e confirmar que ela não aparece na consulta aberta,
-   não recebe nova candidatura e mantém as candidaturas anteriores.
-7. **Administrador/áreas:** cadastrar e editar uma área. Tentar excluir área usada por vaga
-   (deve ser impedido); excluir uma área sem vaga vinculada.
-8. **Contagens:** consultar as contagens como administrador e confirmar estudantes,
-   empresas, vagas abertas, vagas encerradas e candidaturas.
-9. **Entradas inválidas:** digitar texto em uma opção numérica, valor fora da faixa, e-mail
-   inválido e carga horária não positiva; confirmar que a aplicação informa/solicita correção.
-10. **Persistência:** encerrar e iniciar novamente a aplicação e confirmar que cadastros,
-    vagas e candidaturas continuam no Supabase.
+Para a **Entrega 1**, usem os perfis simulados previstos naquela entrega. Para a
+**Entrega 2**, usem contas reais e autenticação por sessão. As contas de demonstração sem
+hash precisam de `APP_BOOTSTRAP_PASSWORD`; não registrem a senha, token CSRF ou cookie
+de sessão nesta tabela.
+
+Exemplos de entrada para a verificação manual (usem um e-mail ainda não cadastrado e repitam
+exatamente o mesmo e-mail no teste de duplicidade):
+
+```json
+{"nome":"Ana Teste","email":"ana.teste@example.com","curso":"Sistemas de Informação","senha":"SenhaTeste123!"}
+{"nome":"RH Teste","email":"rh.teste@example.com","nomeEmpresa":"Empresa Teste","senha":"SenhaTeste123!"}
+{"titulo":"Estágio Java","descricao":"Desenvolvimento back-end","areaId":1,"localizacao":"São Paulo","modalidade":"HIBRIDA","cargaHorariaSemanal":20}
+```
+
+Para validar campos ausentes, envie o objeto de vaga sem um campo por vez; para carga
+inválida, altere `cargaHorariaSemanal` para `0` e `31`. Substitua `areaId` pelos IDs
+existentes no banco. Nas operações de candidatura e propriedade, use IDs reais de vaga,
+estudante e empresa; os IDs numéricos das linhas automatizadas abaixo são fixtures dos
+testes unitários, não IDs garantidos no banco de demonstração.
+
+| Cenário | Entrada/dados | Resultado esperado | Resultado observado |
+|---|---|---|---|
+| Candidatura duplicada (automatizado) | Estudante `40`, vaga aberta `30`; candidatar duas vezes | Primeira aceita; segunda recusada; não gravar duplicata | PASS — `rejeitaSegundaCandidaturaDoMesmoEstudanteNaMesmaVaga` |
+| Candidatura em vaga encerrada (automatizado) | Estudante `40`, vaga `30` com situação `ENCERRADA` | Recusar e não gravar candidatura | PASS — `rejeitaCandidaturaEmVagaEncerrada` |
+| Acesso à vaga de outra empresa (automatizado) | Empresa `20` consulta candidatos da vaga `30`, pertencente à empresa `10` | Recusar acesso e não consultar candidatos | PASS — `impedeEmpresaDeConsultarCandidatosDeVagaDeOutraEmpresa` |
+| Cadastro válido | Cadastrar estudante e empresa usando os exemplos de entrada acima | Ambos criados com sucesso | Pendente — preencher após execução |
+| E-mail repetido (automatizado) | E-mail existente `ana@exemplo.com`; tentar cadastrar empresa com ` ANA@EXEMPLO.COM ` | Rejeitar cadastro e não criar empresa | PASS — `cadastroRejeitaEmailDuplicadoMesmoComDiferencaDeMaiusculas` |
+| Publicar vaga válida (teste de serviço) | Empresa simulada; dados completos; área existente simulada; carga `20` | Serviço cria a vaga aberta e mantém os campos informados | PASS — `publicaVagaComTodosOsCamposObrigatorios` (DAO simulado; sem PostgreSQL) |
+| Campos obrigatórios/carga inválida (teste de serviço) | Omitir título, descrição, área, localização ou modalidade; testar carga `0` e `31` | Cada entrada inválida é recusada; nenhuma vaga é criada | PASS — testes de validação em `VagaServiceTest` (DAO simulado; sem PostgreSQL) |
+| Publicação via API e persistência da vaga | Empresa autenticada; dados completos; área existente; carga `20` | `201 Created`; vaga aparece após nova consulta | Pendente — preencher após execução |
+| Consultar vagas abertas com filtros | Consultar sem filtro e depois por uma área e modalidade existentes | Retornar apenas vagas abertas que correspondam aos filtros | Pendente — preencher após execução |
+| Candidatura válida | Estudante autenticado candidata-se a uma vaga aberta | Criar candidatura e exibi-la em “Minhas candidaturas” | Pendente — preencher após execução |
+| Edição/encerramento e consulta de vaga de outra empresa | Empresa B tenta editar, encerrar e listar candidatos da vaga da empresa A | Todas as operações são recusadas; dados/candidaturas não são alterados | Pendente — preencher após execução |
+| Consulta de candidaturas de outro estudante | Estudante A tenta acessar as candidaturas de estudante B | A API só apresenta as candidaturas do estudante autenticado | Pendente — preencher após execução |
+| Exclusão de área em uso | Administrador tenta excluir área referenciada por vaga | Exclusão recusada; área e vaga permanecem | Pendente — preencher após execução |
+| Persistência após reiniciar | Criar usuário, vaga e candidatura; reiniciar a aplicação e consultar novamente | Os três registros continuam no PostgreSQL | Pendente — preencher após execução |
+| Login, senha inválida e logout (Entrega 2) | Login com credenciais válidas; repetir com senha errada; sair da sessão | Login válido cria sessão; senha errada retorna `401`; logout encerra sessão | Pendente — preencher após execução |
+| Acesso sem autenticação/perfil inadequado (Entrega 2) | Sem sessão acessar recurso privado; usar estudante em ação exclusiva de empresa/admin | Sem sessão retorna `401`; perfil inadequado retorna `403` | Pendente — preencher após execução |
+| Cadastro público sem administrador/segredo (Entrega 2) | Cadastrar estudante/empresa pela API pública e inspecionar resposta e perfis | Não cria administrador; resposta não contém senha nem hash | Pendente — preencher após execução |
+
+Use IDs realmente apresentados pelo banco — os IDs de demonstração podem variar. Para os
+cenários da Entrega 2, obtenha antes o token CSRF em `GET /api/auth/csrf`, mantenha o cookie
+e envie o cabeçalho `X-XSRF-TOKEN` nas requisições que alteram dados.
 
 ## Registro de uso de IA
 

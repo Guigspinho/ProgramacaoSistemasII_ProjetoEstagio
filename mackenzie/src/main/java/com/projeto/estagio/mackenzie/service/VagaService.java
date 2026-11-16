@@ -31,11 +31,13 @@ public class VagaService {
                          String localizacao, Modalidade modalidade, int cargaHorariaSemanal) {
         Validacao.exigirPerfil(ator, Perfil.EMPRESA, "publicar vagas");
         String tituloValido = Validacao.textoObrigatorio(titulo, "Título");
+        String descricaoValida = Validacao.textoObrigatorio(descricao, "Descrição");
+        String localizacaoValida = Validacao.textoObrigatorio(localizacao, "Localização");
         validarModalidadeECarga(modalidade, cargaHorariaSemanal);
         Area area = buscarArea(areaId);
 
-        Vaga vaga = new Vaga(null, (Empresa) ator, tituloValido, descricao, area,
-                localizacao, modalidade, cargaHorariaSemanal);
+        Vaga vaga = new Vaga(null, (Empresa) ator, tituloValido, descricaoValida, area,
+                localizacaoValida, modalidade, cargaHorariaSemanal);
         return vagaDAO.publicar(vaga);
     }
 
@@ -43,13 +45,15 @@ public class VagaService {
                        String localizacao, Modalidade modalidade, int cargaHorariaSemanal) {
         Vaga vaga = buscarVagaEditavel(ator, vagaId);
         String tituloValido = Validacao.textoObrigatorio(titulo, "Título");
+        String descricaoValida = Validacao.textoObrigatorio(descricao, "Descrição");
+        String localizacaoValida = Validacao.textoObrigatorio(localizacao, "Localização");
         validarModalidadeECarga(modalidade, cargaHorariaSemanal);
         Area area = buscarArea(areaId);
 
         vaga.setTitulo(tituloValido);
-        vaga.setDescricao(descricao);
+        vaga.setDescricao(descricaoValida);
         vaga.setArea(area);
-        vaga.setLocalizacao(localizacao);
+        vaga.setLocalizacao(localizacaoValida);
         vaga.setModalidade(modalidade);
         vaga.setCargaHorariaSemanal(cargaHorariaSemanal);
 
@@ -116,6 +120,9 @@ public class VagaService {
     }
 
     private Area buscarArea(Long areaId) {
+        if (areaId == null) {
+            throw new IllegalArgumentException("Área obrigatória.");
+        }
         Area area = areaDAO.buscarPorId(areaId);
         if (area == null) {
             throw new RecursoNaoEncontradoException("Área " + areaId + " não encontrada.");

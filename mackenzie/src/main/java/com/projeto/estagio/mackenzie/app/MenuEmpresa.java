@@ -47,10 +47,10 @@ public class MenuEmpresa {
 
     private void publicar(Usuario ator) {
         String titulo = entrada.lerTexto("Título");
-        String descricao = entrada.lerTextoOpcional("Descrição");
+        String descricao = entrada.lerTexto("Descrição");
         telaVagas.mostrarAreas();
         Long areaId = entrada.lerLong("ID da área");
-        String local = entrada.lerTextoOpcional("Localização");
+        String local = entrada.lerTexto("Localização");
         Modalidade modalidade = entrada.lerModalidade("Modalidade");
         int carga = entrada.lerInt("Carga horária semanal (horas)");
         Vaga v = vagaService.publicar(ator, titulo, descricao, areaId, local, modalidade, carga);
@@ -64,10 +64,10 @@ public class MenuEmpresa {
         vagaService.validarPodeEditar(ator, vagaId);
         System.out.println("Informe os novos dados da vaga:");
         String titulo = entrada.lerTexto("Título");
-        String descricao = entrada.lerTextoOpcional("Descrição");
+        String descricao = entrada.lerTexto("Descrição");
         telaVagas.mostrarAreas();
         Long areaId = entrada.lerLong("ID da área");
-        String local = entrada.lerTextoOpcional("Localização");
+        String local = entrada.lerTexto("Localização");
         Modalidade modalidade = entrada.lerModalidade("Modalidade");
         int carga = entrada.lerInt("Carga horária semanal (horas)");
         Vaga v = vagaService.editar(ator, vagaId, titulo, descricao, areaId, local, modalidade, carga);

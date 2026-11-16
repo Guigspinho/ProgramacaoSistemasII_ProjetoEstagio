@@ -26,14 +26,14 @@ public class Vaga {
     @Column(name = "titulo", nullable = false)
     private String titulo;
 
-    @Column(name = "descricao")
+    @Column(name = "descricao", nullable = false)
     private String descricao;
 
     @ManyToOne(fetch = FetchType.EAGER, optional = false)
     @JoinColumn(name = "area_id", nullable = false)
     private Area area;
 
-    @Column(name = "localizacao")
+    @Column(name = "localizacao", nullable = false)
     private String localizacao;
 
     @Enumerated(EnumType.STRING)

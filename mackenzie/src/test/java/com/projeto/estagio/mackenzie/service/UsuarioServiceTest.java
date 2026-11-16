@@ -5,15 +5,34 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.projeto.estagio.mackenzie.dao.UsuarioDAO;
+import com.projeto.estagio.mackenzie.exception.RegraNegocioException;
+import com.projeto.estagio.mackenzie.model.Empresa;
 import com.projeto.estagio.mackenzie.model.Estudante;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 class UsuarioServiceTest {
+
+    @Test
+    void cadastroRejeitaEmailDuplicadoMesmoComDiferencaDeMaiusculas() {
+        UsuarioDAO usuarioDAO = mock(UsuarioDAO.class);
+        UsuarioService service = new UsuarioService(usuarioDAO, new BCryptPasswordEncoder());
+        when(usuarioDAO.buscarPorEmail("ana@exemplo.com"))
+                .thenReturn(new Estudante(1L, "Ana", "ana@exemplo.com", "Sistemas"));
+
+        assertThrows(RegraNegocioException.class,
+                () -> service.cadastrarEmpresa("RH", " ANA@EXEMPLO.COM ", "Empresa",
+                        "senha-segura-123"));
+
+        verify(usuarioDAO, never()).cadastrarEstudante(any(Estudante.class));
+        verify(usuarioDAO, never()).cadastrarEmpresa(any(Empresa.class));
+    }
 
     @Test
     void cadastroArmazenaHashBCryptEmVezDaSenhaOriginal() {
