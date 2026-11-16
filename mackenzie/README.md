@@ -222,6 +222,26 @@ critérios selecionados sem criar uma ramificação de código para cada combina
   vagas encerradas e candidaturas.
 - Estudante consulta suas candidaturas; empresa consulta candidatos apenas de suas vagas.
 
+## Testes automatizados
+
+Os testes das regras de candidatura ficam em
+[CandidaturaServiceTest.java](src/test/java/com/projeto/estagio/mackenzie/service/CandidaturaServiceTest.java).
+Eles verificam que:
+
+- uma segunda candidatura do mesmo estudante para a mesma vaga é recusada;
+- uma candidatura para uma vaga encerrada é recusada;
+- uma empresa não consegue consultar candidatos de vaga pertencente a outra empresa.
+
+Os testes usam JUnit e Mockito para simular os DAOs; não precisam conectar ao Supabase.
+Na raiz do repositório, execute:
+
+```bash
+mvn -f mackenzie/pom.xml test
+```
+
+Uma execução bem-sucedida termina com código zero. Se uma regra deixar de ser aplicada,
+o teste correspondente falha e o Maven mostra a asserção/erro.
+
 ## Roteiro de verificação manual
 
 Execute cada cenário no modo persistente com dados de demonstração. Os IDs são gerados
